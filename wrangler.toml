@@ -1,0 +1,11 @@
+name = "iurs"
+main = "src/index.js"
+compatibility_date = "2026-08-19"
+
+[assets]
+directory = "./public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "iurs"
+database_id = "5880d1f4-b275-4ca0-b5db-ed33abb0dd09"
