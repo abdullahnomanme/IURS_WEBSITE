@@ -2,7 +2,7 @@
 
 This package is a full Cloudflare Workers application. It includes the existing IURS public website plus a D1-backed member/executive system.
 
-## Recommended deployment without terminal/code
+## Recommended deployment without code
 
 Cloudflare's current dashboard supports deploying Workers from a connected GitHub/GitLab repository. It does **not** use the "Upload static files" screen for Worker source code.
 
