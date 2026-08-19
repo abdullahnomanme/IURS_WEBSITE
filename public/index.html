@@ -1,0 +1,1760 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Islamic University Research Society (IURS)</title>
+<meta content="IURS is a premier academic research organization at Islamic University, Kushtia, dedicated to fostering research excellence and innovation." name="description"/>
+<!-- EXACT DURS FONTS: Inter + Bitter -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700;8..60,800&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<link href="assets/iurs-polish.css" rel="stylesheet"/>
+<style>
+/* ============================================================
+   DURS EXACT THEME VARIABLES (from univet-inline-css)
+   ============================================================ */
+:root {
+  --primaryColor:   #960b27;
+  --primaryDark:    #730017;
+  --primaryLight:   #b01535;
+  --secondaryColor: #030303;
+  --bodyColor:      #4c4c4c;
+  --titleColor:     #030303;
+  --borderColor:    #e7e1d4;
+  --shadeColor:     #f6f4ee;
+  --navyColor:      #051435;
+  --navyDark:       #06101f;
+  --skyColor:       #fdc72f;
+  --whiteColor:     #ffffff;
+  --font-body:      'Inter', sans-serif;
+  --font-heading:   'Bitter', serif;
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  color: var(--bodyColor);
+  background: var(--shadeColor);
+  font-size: 16px;
+  line-height: 1.7;
+}
+h1,h2,h3,h4,h5,h6 {
+  font-family: var(--font-heading);
+  color: var(--titleColor);
+  line-height: 1.2;
+  font-weight: 700;
+}
+a { text-decoration: none; color: inherit; }
+img { max-width: 100%; height: auto; display: block; }
+ul { list-style: none; }
+.container { max-width: 1300px; margin: 0 auto; padding: 0 20px; }
+section { padding: 90px 0; }
+
+/* ============================================================
+   PRELOADER
+   ============================================================ */
+#preloader {
+  position: fixed; inset: 0; background: var(--whiteColor);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 99999; transition: opacity .5s ease;
+}
+#preloader.done { opacity: 0; pointer-events: none; }
+.preloader-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+.preloader-logo {
+  width: 70px; height: 70px; border-radius: 16px;
+  background: linear-gradient(135deg, var(--primaryColor), var(--primaryDark));
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-family: var(--font-heading); font-size: 24px; font-weight: 800;
+  box-shadow: 0 8px 24px rgba(150,11,39,.35);
+  animation: preloaderPulse 1.2s ease-in-out infinite;
+}
+@keyframes preloaderPulse {
+  0%,100% { transform: scale(1); box-shadow: 0 8px 24px rgba(150,11,39,.35); }
+  50% { transform: scale(1.06); box-shadow: 0 12px 32px rgba(150,11,39,.5); }
+}
+.preloader-bar {
+  width: 120px; height: 3px; background: #f0f0f0; border-radius: 2px; overflow: hidden;
+}
+.preloader-bar::after {
+  content: ''; display: block; height: 100%;
+  background: var(--primaryColor); border-radius: 2px;
+  animation: preloaderBar 1.2s ease-in-out infinite;
+}
+@keyframes preloaderBar {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+/* ============================================================
+   TOPBAR  (exact DURS style)
+   ============================================================ */
+.topbar {
+  background: var(--navyDark);
+  padding: 9px 0;
+  font-size: 13px;
+  color: rgba(255,255,255,.75);
+}
+.topbar .inner {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.topbar-left { display: flex; align-items: center; gap: 24px; }
+.topbar-left a {
+  color: rgba(255,255,255,.75); transition: color .2s;
+  display: flex; align-items: center; gap: 7px; font-size: 13px;
+}
+.topbar-left a i { color: var(--primaryColor); font-size: 13px; }
+.topbar-left a:hover { color: var(--whiteColor); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.topbar-right a {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(255,255,255,.08); color: rgba(255,255,255,.7);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; transition: .2s;
+}
+.topbar-right a:hover { background: var(--primaryColor); color: #fff; }
+.topbar-divider { width: 1px; height: 14px; background: rgba(255,255,255,.15); }
+.apply-btn-top {
+  background: var(--primaryColor); color: #fff !important;
+  padding: 5px 16px; border-radius: 5px; font-size: 12px; font-weight: 700;
+  transition: .2s; display: flex; align-items: center; gap: 5px;
+}
+.apply-btn-top:hover { background: var(--primaryDark) !important; }
+
+/* ============================================================
+   NAVIGATION  (exact DURS style)
+   ============================================================ */
+.navbar {
+  background: var(--whiteColor);
+  box-shadow: 0 2px 20px rgba(0,0,0,.07);
+  position: sticky; top: 0; z-index: 1000;
+  transition: box-shadow .3s;
+}
+.navbar.scrolled { box-shadow: 0 4px 30px rgba(0,0,0,.12); }
+.nav-inner {
+  display: flex; justify-content: space-between; align-items: center;
+  height: 78px;
+}
+.logo { display: flex; align-items: center; gap: 14px; }
+.logo-mark {
+  width: 54px; height: 54px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--primaryColor) 0%, var(--primaryDark) 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-family: var(--font-heading); font-size: 20px; font-weight: 800;
+  box-shadow: 0 4px 14px rgba(150,11,39,.3);
+  flex-shrink: 0;
+}
+.logo-words { display: flex; flex-direction: column; }
+.logo-words .org-name {
+  font-family: var(--font-heading); font-size: 19px; font-weight: 800;
+  color: var(--titleColor); line-height: 1.15; letter-spacing: -.3px;
+}
+.logo-words .org-sub { font-size: 11.5px; color: #888; margin-top: 1px; font-weight: 400; }
+
+.nav-menu { display: flex; align-items: center; gap: 0; }
+.nav-menu > li { position: relative; }
+.nav-menu > li > a {
+  display: flex; align-items: center; gap: 4px;
+  padding: 10px 11px; font-size: 13.5px; font-weight: 600;
+  color: #333; border-radius: 7px; transition: .2s; white-space: nowrap;
+}
+.nav-menu > li > a:hover,
+.nav-menu > li > a.active { color: var(--primaryColor); background: rgba(150,11,39,.05); }
+.nav-menu > li > a i { font-size: 10px; transition: transform .2s; }
+.nav-menu > li:hover > a i { transform: rotate(180deg); }
+
+/* Dropdown */
+.dropdown {
+  position: absolute; top: calc(100% + 8px); left: 0;
+  background: #fff; border-radius: 12px; min-width: 200px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.12);
+  border: 1px solid #f0f0f0;
+  opacity: 0; visibility: hidden; transform: translateY(8px);
+  transition: .25s; z-index: 100;
+  padding: 8px 0;
+}
+.nav-menu > li:hover .dropdown { opacity: 1; visibility: visible; transform: translateY(0); }
+.dropdown li a {
+  display: block; padding: 9px 18px; font-size: 13.5px;
+  color: #444; transition: .15s; font-weight: 500;
+}
+.dropdown li a:hover { color: var(--primaryColor); background: rgba(150,11,39,.04); padding-left: 24px; }
+
+.nav-cta {
+  display: flex; align-items: center; gap: 10px;
+}
+.btn-login {
+  border: 2px solid var(--primaryColor); color: var(--primaryColor);
+  padding: 9px 22px; border-radius: 8px; font-weight: 700; font-size: 14px;
+  transition: .2s;
+}
+.btn-login:hover { background: var(--primaryColor); color: #fff; }
+.btn-apply {
+  background: var(--primaryColor); color: #fff;
+  padding: 9px 22px; border-radius: 8px; font-weight: 700; font-size: 14px;
+  box-shadow: 0 4px 14px rgba(150,11,39,.3); transition: .2s;
+}
+.btn-apply:hover { background: var(--primaryDark); transform: translateY(-1px); }
+
+/* Mobile hamburger */
+.hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 4px; }
+.hamburger span {
+  display: block; width: 24px; height: 2px;
+  background: var(--titleColor); border-radius: 2px; transition: .3s;
+}
+.hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+/* Mobile Menu */
+.mobile-nav {
+  display: none; position: fixed; inset: 0; top: 78px;
+  background: rgba(0,0,0,.95); z-index: 999;
+  overflow-y: auto; padding: 24px;
+  transform: translateX(100%); transition: transform .3s ease;
+}
+.mobile-nav.open { transform: translateX(0); }
+.mobile-nav a {
+  display: block; color: #fff; font-size: 16px; font-weight: 600;
+  padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.mobile-nav a:hover { color: var(--primaryColor); }
+
+/* ============================================================
+   HERO SLIDER (DURS style - full screen with overlay)
+   ============================================================ */
+.hero {
+  min-height: calc(100vh - 38px); position: relative; overflow: hidden;
+  display: flex; align-items: center;
+  background: var(--navyDark);
+}
+.hero-slides { position: absolute; inset: 0; }
+.hero-slide {
+  position: absolute; inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0; transition: opacity 1.2s ease;
+  transform: scale(1.04);
+}
+.hero-slide.active { opacity: 1; }
+.hero-slide:nth-child(1) { background-image: url('assets/group-field-day-2025.jpg'); }
+.hero-slide:nth-child(2) { background-image: url('assets/campus-monument.jpg'); }
+.hero-slide:nth-child(3) { background-image: url('assets/session-circle-3.jpg'); }
+.hero-slide::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(90deg, rgba(5,20,53,.94) 0%, rgba(5,20,53,.82) 42%, rgba(5,20,53,.42) 72%, rgba(5,20,53,.18) 100%),
+    linear-gradient(0deg, rgba(5,20,53,.52), rgba(5,20,53,.12));
+}
+/* Grid pattern like DURS */
+.hero-slide::after {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,.14) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: .18;
+}
+.hero-accent-bar {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 5px;
+  background: linear-gradient(180deg, var(--primaryColor) 0%, var(--skyColor) 100%);
+  z-index: 10;
+}
+.hero-inner {
+  position: relative; z-index: 5;
+  width: 100%; padding: 100px 0 80px;
+}
+.hero-content-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) 382px; gap: 78px; align-items: center;
+}
+/* Left content */
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+  color: rgba(255,255,255,.85); font-size: 12.5px; font-weight: 600;
+  padding: 7px 16px; border-radius: 50px; margin-bottom: 22px;
+  backdrop-filter: blur(10px);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.hero-badge-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #4ade80;
+  animation: blink 1.8s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.hero-tagline {
+  font-family: var(--font-heading);
+  font-size: clamp(40px, 5.3vw, 72px);
+  font-weight: 800; color: #fff;
+  line-height: 1.04; margin-bottom: 26px;
+  letter-spacing: 0;
+}
+.hero-tagline .line2 { color: #fff; font-style: italic; display: block; }
+.hero-tagline .line3 { color: var(--secondaryColor); display: block; }
+.hero-desc {
+  color: rgba(255,255,255,.7); font-size: 16px; line-height: 1.75;
+  margin-bottom: 36px; max-width: 520px;
+}
+.hero-btns { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 48px; }
+.btn-primary-red {
+  background: var(--primaryColor); color: #fff;
+  padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 15px;
+  box-shadow: 0 6px 22px rgba(150,11,39,.4); transition: .25s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-primary-red:hover { background: var(--primaryDark); transform: translateY(-2px); color: #fff; }
+.btn-outline-white {
+  border: 2px solid rgba(255,255,255,.35); color: #fff;
+  padding: 12px 30px; border-radius: 8px; font-weight: 600; font-size: 15px;
+  transition: .25s; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-outline-white:hover { border-color: #fff; background: rgba(255,255,255,.08); }
+/* Stats bar in hero */
+.hero-stats {
+  display: flex; gap: 0; max-width: 660px;
+  background: rgba(255,255,255,.96); border: 1px solid rgba(255,255,255,.22);
+  border-radius: 0; overflow: hidden; box-shadow: 0 22px 60px rgba(0,0,0,.22);
+}
+.hero-stat {
+  flex: 1; padding: 18px 14px; text-align: center;
+  border-right: 1px solid rgba(0,0,0,.08);
+}
+.hero-stat:last-child { border-right: none; }
+.hero-stat .h-num {
+  font-family: var(--font-heading); font-size: 30px; font-weight: 900;
+  color: var(--primaryColor); display: block; line-height: 1;
+}
+.hero-stat .h-lbl { font-size: 11.5px; color: rgba(0,0,0,.55); margin-top: 4px; display: block; }
+
+/* Right panel */
+.hero-right-panel { display: flex; flex-direction: column; gap: 14px; }
+.hero-panel-card {
+  background: rgba(255,255,255,.96); border: 1px solid rgba(255,255,255,.45);
+  border-radius: 0; padding: 24px; backdrop-filter: blur(14px);
+  color: var(--titleColor); box-shadow: 0 20px 55px rgba(0,0,0,.18);
+}
+.hero-panel-card h4 {
+  font-family: var(--font-heading); font-size: 16px; color: var(--titleColor);
+  margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.hero-panel-card h4 i { color: #fbbf24; }
+.notice-list { display: flex; flex-direction: column; gap: 0; }
+.notice-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.08);
+  font-size: 13px; color: var(--bodyColor); line-height: 1.5;
+}
+.notice-row:last-child { border-bottom: none; }
+.ndot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.ndot.urgent { background: #ef4444; }
+.ndot.high   { background: #f97316; }
+.ndot.normal { background: #22c55e; }
+.panel-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: #4ade80; font-size: 12.5px; font-weight: 700; margin-top: 12px;
+}
+.panel-link:hover { color: #86efac; }
+
+.event-live-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: #4ade80; font-weight: 700; margin-bottom: 8px;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.event-live-badge span { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: blink 1.5s infinite; }
+.event-title { font-family: var(--font-heading); font-size: 15px; color: var(--titleColor); margin-bottom: 10px; }
+.event-details { display: flex; flex-direction: column; gap: 5px; }
+.event-details span { font-size: 12.5px; color: rgba(255,255,255,.6); display: flex; align-items: center; gap: 6px; }
+.event-details span i { color: var(--skyColor); font-size: 12px; }
+
+/* Scroll indicator */
+.scroll-down {
+  position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  color: rgba(255,255,255,.35); font-size: 11px; text-transform: uppercase;
+  letter-spacing: .1em; z-index: 10; animation: scrollBounce 2s ease-in-out infinite;
+}
+.scroll-down i { font-size: 18px; }
+@keyframes scrollBounce { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(6px)} }
+
+/* Slider dots */
+.slider-dots {
+  position: absolute; bottom: 30px; right: 40px; z-index: 10;
+  display: flex; gap: 8px;
+}
+.sdot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(255,255,255,.3); cursor: pointer; transition: .3s;
+}
+.sdot.active { background: var(--primaryColor); width: 24px; border-radius: 4px; }
+
+/* ============================================================
+   ABOUT SECTION (DURS style - image left + text right)
+   ============================================================ */
+.about-sec { background: var(--whiteColor); padding: 100px 0; }
+.about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 70px; align-items: center; }
+.about-image-wrap { position: relative; }
+.about-img-box {
+  border-radius: 20px; overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0,0,0,.14);
+  aspect-ratio: 4/3;
+  background: linear-gradient(135deg, var(--navyDark) 0%, var(--navyColor) 60%, #1a3045 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  position: relative;
+}
+.about-img-box img {
+  width: 100%; height: 100%; object-fit: cover; object-position: center;
+}
+.about-img-box::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 60%, rgba(0,0,0,.3) 100%);
+}
+.about-img-placeholder {
+  text-align: center; color: rgba(255,255,255,.15); z-index: 1;
+}
+.about-img-placeholder i { font-size: 90px; margin-bottom: 14px; }
+.about-img-placeholder p { font-size: 14px; font-style: italic; font-family: var(--font-heading); }
+.about-badge {
+  position: absolute; bottom: -20px; right: -20px;
+  background: var(--primaryColor);
+  color: #fff; border-radius: 16px; padding: 20px 26px;
+  text-align: center; box-shadow: 0 10px 30px rgba(150,11,39,.4);
+  z-index: 2;
+}
+.about-badge .big-num {
+  font-family: var(--font-heading); font-size: 40px; font-weight: 900;
+  display: block; line-height: 1;
+}
+.about-badge .big-txt { font-size: 12px; opacity: .9; display: block; margin-top: 4px; }
+.about-tab-btns { display: flex; gap: 0; margin-bottom: 24px; border-radius: 8px; overflow: hidden; border: 1px solid #eee; }
+.about-tab-btn {
+  flex: 1; padding: 10px 16px; font-size: 13px; font-weight: 700;
+  border: none; background: #f8f8f8; color: #666; cursor: pointer; transition: .2s;
+}
+.about-tab-btn.active { background: var(--primaryColor); color: #fff; }
+.about-tab-content { display: none; }
+.about-tab-content.active { display: block; }
+.about-tab-content p { color: #555; font-size: 15px; line-height: 1.8; margin-bottom: 16px; }
+.sec-label-inline {
+  font-size: 13px; font-weight: 700; color: var(--primaryColor);
+  text-transform: uppercase; letter-spacing: .1em;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.sec-label-inline::before { content: ''; display: block; width: 30px; height: 3px; background: var(--primaryColor); border-radius: 2px; }
+.sec-h2 {
+  font-family: var(--font-heading); font-size: clamp(28px, 3.5vw, 42px);
+  font-weight: 900; color: var(--titleColor); line-height: 1.15; margin-bottom: 10px;
+}
+.sec-h2 span { color: var(--primaryColor); }
+.sec-h2 em { font-style: italic; }
+.rule { width: 50px; height: 4px; border-radius: 2px; background: var(--primaryColor); margin-bottom: 22px; }
+.features-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0 28px; }
+.feature-item { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 500; color: #333; }
+.feature-item i { color: var(--primaryColor); font-size: 15px; flex-shrink: 0; }
+.dual-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn-red-solid {
+  background: var(--primaryColor); color: #fff;
+  padding: 12px 26px; border-radius: 8px; font-weight: 700; font-size: 14px;
+  box-shadow: 0 4px 16px rgba(150,11,39,.3); transition: .2s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-red-solid:hover { background: var(--primaryDark); transform: translateY(-1px); color: #fff; }
+.btn-red-outline {
+  border: 2px solid var(--primaryColor); color: var(--primaryColor);
+  padding: 10px 24px; border-radius: 8px; font-weight: 700; font-size: 14px;
+  transition: .2s; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-red-outline:hover { background: var(--primaryColor); color: #fff; }
+
+/* ============================================================
+   STATS COUNTER BAR (DURS dark navy band)
+   ============================================================ */
+.stats-bar { background: var(--navyDark); padding: 0; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+.stat-box {
+  padding: 42px 20px; text-align: center;
+  border-right: 1px solid rgba(255,255,255,.07); transition: .3s;
+  position: relative;
+}
+.stat-box:last-child { border-right: none; }
+.stat-box:hover { background: rgba(255,255,255,.04); }
+.stat-icon-wrap {
+  width: 56px; height: 56px; border-radius: 14px;
+  background: rgba(150,11,39,.25); display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px; border: 1px solid rgba(150,11,39,.3);
+}
+.stat-icon-wrap i { font-size: 22px; color: var(--skyColor); }
+.stat-num-big {
+  font-family: var(--font-heading); font-size: 46px; font-weight: 900;
+  color: #fff; display: block; line-height: 1;
+}
+.stat-plus { color: var(--primaryColor); }
+.stat-desc { font-size: 13.5px; color: rgba(255,255,255,.5); margin-top: 6px; display: block; }
+
+/* ============================================================
+   RESEARCH / ACADEMICS (DURS programs-style)
+   ============================================================ */
+.research-sec { background: var(--shadeColor); }
+.sec-header { text-align: center; margin-bottom: 52px; }
+.sec-header .sec-label-inline { justify-content: center; }
+.sec-header .rule { margin: 12px auto 0; }
+.research-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+.research-card {
+  background: var(--whiteColor); border-radius: 18px; overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,.06); transition: .3s; cursor: pointer;
+}
+.research-card:hover { transform: translateY(-7px); box-shadow: 0 18px 45px rgba(0,0,0,.12); }
+.rc-top { height: 6px; background: linear-gradient(90deg, var(--primaryColor), var(--skyColor)); }
+.rc-body { padding: 26px; }
+.rc-tag {
+  display: inline-block; background: rgba(150,11,39,.08);
+  color: var(--primaryColor); font-size: 12px; font-weight: 700;
+  padding: 4px 13px; border-radius: 20px; margin-bottom: 13px;
+}
+.rc-title {
+  font-family: var(--font-heading); font-size: 17px; font-weight: 700;
+  color: var(--titleColor); margin-bottom: 12px; line-height: 1.4;
+}
+.rc-title:hover { color: var(--primaryColor); }
+.rc-desc {
+  font-size: 14px; color: #666; line-height: 1.7;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  margin-bottom: 18px;
+}
+.rc-footer { display: flex; justify-content: space-between; align-items: center;
+  font-size: 12.5px; color: #aaa; border-top: 1px solid #f0f0f0; padding-top: 14px; }
+.rc-link { color: var(--primaryColor); font-weight: 700; display: flex; align-items: center; gap: 5px; }
+.rc-link:hover { color: var(--primaryDark); }
+
+/* ============================================================
+   ADMISSIONS CTA (DURS style - red band)
+   ============================================================ */
+.cta-banner {
+  background: linear-gradient(120deg, var(--primaryDark) 0%, var(--primaryColor) 50%, #b01535 100%);
+  padding: 70px 0; text-align: center; position: relative; overflow: hidden;
+}
+.cta-banner::before {
+  content: ''; position: absolute; inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,.06) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+.cta-inner { position: relative; z-index: 2; }
+.cta-banner h2 {
+  font-family: var(--font-heading); font-size: clamp(28px, 4vw, 46px);
+  font-weight: 900; color: #fff; margin-bottom: 14px;
+}
+.cta-banner p { font-size: 17px; color: rgba(255,255,255,.82); max-width: 560px; margin: 0 auto 34px; line-height: 1.7; }
+.cta-btns { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+.btn-white-solid {
+  background: #fff; color: var(--primaryColor);
+  padding: 13px 32px; border-radius: 8px; font-weight: 800; font-size: 15px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.2); transition: .2s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-white-solid:hover { background: #f0f0f0; transform: translateY(-2px); color: var(--primaryColor); }
+.btn-outline-white-solid {
+  border: 2px solid rgba(255,255,255,.5); color: #fff;
+  padding: 11px 30px; border-radius: 8px; font-weight: 700; font-size: 15px;
+  transition: .2s; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-outline-white-solid:hover { background: rgba(255,255,255,.1); border-color: #fff; }
+
+/* ============================================================
+   EXECUTIVE COMMITTEE
+   ============================================================ */
+.exec-sec { background: var(--shadeColor); }
+.exec-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+.exec-card {
+  background: var(--whiteColor); border-radius: 18px; padding: 30px 22px;
+  text-align: center; box-shadow: 0 4px 22px rgba(0,0,0,.06);
+  transition: .3s; position: relative; overflow: hidden;
+}
+.exec-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px;
+  background: linear-gradient(90deg, var(--primaryColor), var(--skyColor));
+}
+.exec-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,.1); }
+.exec-photo {
+  width: 95px; height: 95px; border-radius: 50%; margin: 0 auto 16px;
+  overflow: hidden; border: 3px solid rgba(150,11,39,.12);
+  box-shadow: 0 6px 18px rgba(0,0,0,.1);
+}
+.exec-photo-placeholder {
+  width: 100%; height: 100%;
+  background: linear-gradient(135deg, var(--primaryColor), var(--primaryDark));
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-family: var(--font-heading); font-size: 30px; font-weight: 800;
+}
+.exec-name { font-family: var(--font-heading); font-size: 16px; font-weight: 700; color: var(--titleColor); margin-bottom: 5px; }
+.exec-role { font-size: 13px; color: var(--primaryColor); font-weight: 700; margin-bottom: 3px; }
+.exec-dept { font-size: 12px; color: #aaa; margin-bottom: 14px; }
+.exec-socials { display: flex; justify-content: center; gap: 8px; }
+.exec-socials a {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(150,11,39,.08); color: var(--primaryColor);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; transition: .2s;
+}
+.exec-socials a:hover { background: var(--primaryColor); color: #fff; transform: scale(1.1); }
+
+/* ============================================================
+   EVENTS (DURS events grid)
+   ============================================================ */
+.events-sec { background: var(--whiteColor); }
+.events-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+.event-card {
+  background: var(--whiteColor); border-radius: 16px; overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,.07); transition: .3s;
+}
+.event-card:hover { transform: translateY(-5px); box-shadow: 0 14px 36px rgba(0,0,0,.1); }
+.event-thumb {
+  height: 160px; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, var(--navyDark), var(--navyColor));
+  display: flex; align-items: center; justify-content: center;
+}
+.event-thumb i { font-size: 42px; color: rgba(255,255,255,.18); }
+.event-thumb.has-photo {
+  background-size: cover !important; background-position: center !important;
+}
+.event-thumb.has-photo i { display: none; }
+.event-card:nth-child(1) .event-thumb { background: linear-gradient(rgba(5,20,53,.32), rgba(5,20,53,.32)), url('assets/orientation-research-methodology.jpg'); background-size: cover; background-position: center; }
+.event-card:nth-child(2) .event-thumb { background: linear-gradient(rgba(5,20,53,.28), rgba(5,20,53,.28)), url('assets/event-unveiling-seminar.jpg'); background-size: cover; background-position: center; }
+.event-card:nth-child(3) .event-thumb { background: linear-gradient(rgba(5,20,53,.28), rgba(5,20,53,.28)), url('assets/webinar-study-europe.jpg'); background-size: cover; background-position: center; }
+.event-card:nth-child(4) .event-thumb { background: linear-gradient(rgba(5,20,53,.28), rgba(5,20,53,.28)), url('assets/recruitment-4.1.jpg'); background-size: cover; background-position: center; }
+.event-date-stamp {
+  position: absolute; top: 12px; left: 12px;
+  background: var(--primaryColor); color: #fff;
+  border-radius: 10px; padding: 8px 14px; text-align: center; line-height: 1.1;
+}
+.event-date-stamp .e-month { font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
+.event-date-stamp .e-day { font-size: 26px; font-weight: 900; font-family: var(--font-heading); display: block; }
+.event-date-stamp .e-year { font-size: 10px; opacity: .8; }
+.event-free-tag { position: absolute; top: 12px; right: 12px; background: #22c55e; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+.event-body { padding: 16px 18px; }
+.event-cat-tag { font-size: 11.5px; color: var(--primaryColor); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.event-title { font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--titleColor); margin-bottom: 10px; line-height: 1.35; }
+.event-title:hover { color: var(--primaryColor); }
+.event-info { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+.event-info span { font-size: 12.5px; color: #888; display: flex; align-items: center; gap: 6px; }
+.event-info span i { color: var(--primaryColor); font-size: 11px; }
+.event-foot { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f0f0f0; padding-top: 12px; font-size: 12.5px; }
+.view-details-link { color: var(--primaryColor); font-weight: 700; display: flex; align-items: center; gap: 4px; transition: .2s; }
+.view-details-link:hover { gap: 8px; }
+
+/* ============================================================
+   PUBLICATIONS
+   ============================================================ */
+.pub-sec { background: var(--shadeColor); }
+.pub-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+.pub-card {
+  background: var(--whiteColor); border-radius: 16px; overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0,0,0,.07); transition: .3s; cursor: pointer;
+}
+.pub-card:hover { transform: translateY(-5px); box-shadow: 0 14px 34px rgba(0,0,0,.1); }
+.pub-thumb {
+  height: 190px; position: relative; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--primaryDark) 0%, var(--navyDark) 100%);
+}
+.pub-thumb i { font-size: 46px; color: rgba(255,255,255,.2); margin-bottom: 8px; }
+.pub-thumb .pub-type-txt { font-size: 11px; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: .1em; }
+.pub-type-badge {
+  position: absolute; top: 10px; left: 10px;
+  background: rgba(255,255,255,.92); color: var(--navyDark);
+  font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+}
+.pub-download {
+  position: absolute; bottom: 10px; right: 10px;
+  background: var(--primaryColor); color: #fff; width: 32px; height: 32px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; opacity: 0; transition: .2s;
+}
+.pub-card:hover .pub-download { opacity: 1; }
+.pub-body { padding: 16px 18px; }
+.pub-title { font-family: var(--font-heading); font-size: 14.5px; font-weight: 700; color: var(--titleColor); margin-bottom: 8px; line-height: 1.4; }
+.pub-meta { font-size: 12.5px; color: #aaa; display: flex; align-items: center; gap: 5px; }
+.pub-meta i { color: var(--primaryColor); font-size: 11px; }
+
+/* ============================================================
+   TESTIMONIALS (DURS voices section)
+   ============================================================ */
+.testi-sec { background: var(--navyDark); padding: 90px 0; }
+.testi-sec .sec-h2 { color: #fff; }
+.testi-sec .sec-label-inline { color: var(--skyColor); }
+.testi-sec .sec-label-inline::before { background: var(--skyColor); }
+.testi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+.testi-card {
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 18px; padding: 28px; transition: .3s;
+}
+.testi-card:hover { background: rgba(255,255,255,.09); transform: translateY(-4px); }
+.quote-icon { font-size: 38px; color: var(--primaryColor); font-family: Georgia; line-height: 1; margin-bottom: 14px; }
+.testi-text { color: rgba(255,255,255,.78); font-size: 14.5px; line-height: 1.78; font-style: italic; margin-bottom: 22px; }
+.testi-author { display: flex; align-items: center; gap: 13px; }
+.testi-avatar {
+  width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--primaryColor), var(--skyColor));
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 17px;
+}
+.testi-name { font-weight: 700; color: #fff; font-size: 15px; }
+.testi-role { font-size: 12px; color: rgba(255,255,255,.5); margin-top: 2px; }
+.testi-stars { color: #fbbf24; font-size: 12px; margin-top: 3px; }
+
+/* ============================================================
+   NEWS / BLOG
+   ============================================================ */
+.news-sec { background: var(--whiteColor); }
+.news-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+.news-card {
+  background: var(--whiteColor); border-radius: 16px; overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,.07); transition: .3s;
+}
+.news-card:hover { transform: translateY(-5px); box-shadow: 0 14px 36px rgba(0,0,0,.1); }
+.news-img {
+  height: 190px; overflow: hidden; position: relative;
+  background: linear-gradient(135deg, #e0e4ea, #c8cdd6);
+  display: flex; align-items: center; justify-content: center;
+}
+.news-img i { font-size: 44px; color: rgba(0,0,0,.1); }
+.news-img.has-photo {
+  background-size: cover !important; background-position: center !important;
+}
+.news-img.has-photo i { display: none; }
+.news-card:nth-child(1) .news-img { background: linear-gradient(rgba(5,20,53,.25), rgba(5,20,53,.25)), url('assets/best-paper-award.jpg'); background-size: cover; background-position: center; }
+.news-card:nth-child(2) .news-img { background: linear-gradient(rgba(5,20,53,.25), rgba(5,20,53,.25)), url('assets/campus-building.jpg'); background-size: cover; background-position: center; }
+.news-card:nth-child(3) .news-img { background: linear-gradient(rgba(5,20,53,.25), rgba(5,20,53,.25)), url('assets/session-circle-1.jpg'); background-size: cover; background-position: center; }
+.news-cat-badge {
+  position: absolute; top: 12px; left: 12px;
+  background: var(--primaryColor); color: #fff;
+  font-size: 11px; font-weight: 700; padding: 3px 11px; border-radius: 20px;
+}
+.news-body { padding: 20px 22px; }
+.news-date { font-size: 12px; color: #aaa; margin-bottom: 9px; display: flex; align-items: center; gap: 5px; }
+.news-date i { color: var(--primaryColor); }
+.news-title { font-family: var(--font-heading); font-size: 16.5px; font-weight: 700; color: var(--titleColor); margin-bottom: 10px; line-height: 1.38; }
+.news-title:hover { color: var(--primaryColor); cursor: pointer; }
+.news-excerpt { font-size: 14px; color: #777; line-height: 1.7; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.news-foot { padding: 14px 22px; border-top: 1px solid #f5f5f5; display: flex; align-items: center; justify-content: space-between; }
+.news-author { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666; }
+.author-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--primaryColor); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.read-more-link { font-size: 13px; color: var(--primaryColor); font-weight: 700; display: flex; align-items: center; gap: 4px; }
+
+/* ============================================================
+   FOOTER  (DURS footer)
+   ============================================================ */
+footer { background: #0a0e14; color: rgba(255,255,255,.65); }
+.footer-top { max-width: 1200px; margin: 0 auto; padding: 70px 24px 50px;
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1.3fr; gap: 44px; }
+.footer-about .footer-logo { display: flex; align-items: center; gap: 13px; margin-bottom: 18px; }
+.footer-logo-mark {
+  width: 50px; height: 50px; border-radius: 11px;
+  background: linear-gradient(135deg, var(--primaryColor), var(--primaryDark));
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-family: var(--font-heading); font-size: 18px; font-weight: 800;
+}
+.footer-org-name { font-family: var(--font-heading); font-size: 18px; font-weight: 800; color: #fff; }
+.footer-org-sub { font-size: 11.5px; color: rgba(255,255,255,.4); margin-top: 1px; }
+.footer-about p { font-size: 14px; line-height: 1.75; color: rgba(255,255,255,.5); margin-bottom: 22px; max-width: 300px; }
+.footer-socials { display: flex; gap: 10px; }
+.footer-socials a {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,.07); color: rgba(255,255,255,.55);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; transition: .2s;
+}
+.footer-socials a:hover { background: var(--primaryColor); color: #fff; transform: translateY(-2px); }
+.footer-col h4 {
+  font-family: var(--font-heading); font-size: 16px; font-weight: 700;
+  color: #fff; margin-bottom: 20px; padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.footer-col ul li { margin-bottom: 10px; }
+.footer-col ul li a {
+  color: rgba(255,255,255,.5); font-size: 14px; transition: .2s;
+  display: flex; align-items: center; gap: 8px;
+}
+.footer-col ul li a:hover { color: var(--skyColor); padding-left: 4px; }
+.footer-col ul li a i { font-size: 10px; color: var(--primaryColor); }
+.footer-contact-list li {
+  display: flex; align-items: flex-start; gap: 12px;
+  font-size: 14px; color: rgba(255,255,255,.5); margin-bottom: 14px;
+}
+.footer-contact-list li i { color: var(--skyColor); font-size: 15px; margin-top: 2px; flex-shrink: 0; }
+.footer-contact-list li a { color: rgba(255,255,255,.5); transition: .2s; }
+.footer-contact-list li a:hover { color: var(--skyColor); }
+.footer-bottom {
+  border-top: 1px solid rgba(255,255,255,.06);
+  padding: 18px 24px;
+  max-width: 1200px; margin: 0 auto;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 8px;
+  font-size: 13px; color: rgba(255,255,255,.3);
+}
+.footer-bottom span { display: flex; align-items: center; gap: 6px; }
+.footer-bottom i { color: var(--primaryColor); }
+
+/* ============================================================
+   SCROLL TO TOP
+   ============================================================ */
+#scroll-top-btn {
+  position: fixed; bottom: 26px; right: 26px; z-index: 999;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--primaryColor); color: #fff; border: none; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(150,11,39,.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: .3s; opacity: 0; pointer-events: none;
+  transform: translateY(10px);
+}
+#scroll-top-btn.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+#scroll-top-btn:hover { background: var(--primaryDark); transform: translateY(-2px); }
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+.reveal { opacity: 0; transform: translateY(30px); transition: opacity .7s ease, transform .7s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: .1s; }
+.reveal-delay-2 { transition-delay: .2s; }
+.reveal-delay-3 { transition-delay: .3s; }
+.reveal-delay-4 { transition-delay: .4s; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+.focus-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; margin-top: 44px; }
+.focus-card {
+  display: block; background: var(--shadeColor); border-radius: 14px;
+  padding: 30px 18px; text-align: center; transition: .25s; border: 1px solid var(--borderColor);
+}
+.focus-card:hover { background: var(--primaryColor); border-color: var(--primaryColor); transform: translateY(-4px); }
+.focus-card i { font-size: 26px; color: var(--primaryColor); margin-bottom: 14px; display: block; transition: .25s; }
+.focus-card:hover i { color: #fff; }
+.focus-card div { font-family: var(--font-heading); font-size: 14.5px; font-weight: 700; color: var(--titleColor); transition: .25s; }
+.focus-card:hover div { color: #fff; }
+
+@media (max-width: 1024px) {
+  .focus-grid { grid-template-columns: repeat(3, 1fr); }
+  .hero-content-grid { grid-template-columns: 1fr; }
+  .hero-right-panel { display: none; }
+  .about-grid { grid-template-columns: 1fr; }
+  .about-badge { bottom: -10px; right: 10px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-box { border-bottom: 1px solid rgba(255,255,255,.07); }
+  .research-grid { grid-template-columns: repeat(2, 1fr); }
+  .exec-grid { grid-template-columns: repeat(2, 1fr); }
+  .events-grid { grid-template-columns: repeat(2, 1fr); }
+  .pub-grid { grid-template-columns: repeat(2, 1fr); }
+  .testi-grid { grid-template-columns: repeat(2, 1fr); }
+  .news-grid { grid-template-columns: repeat(2, 1fr); }
+  .footer-top { grid-template-columns: 1fr 1fr; }
+  .nav-menu, .nav-cta { display: none; }
+  .hamburger { display: flex; }
+  .mobile-nav { display: block; }
+}
+@media (max-width: 640px) {
+  section { padding: 60px 0; }
+  .research-grid, .exec-grid, .events-grid, .pub-grid, .testi-grid, .news-grid { grid-template-columns: 1fr; }
+  .focus-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .footer-top { grid-template-columns: 1fr; gap: 32px; }
+  .footer-bottom { flex-direction: column; text-align: center; }
+  .features-list { grid-template-columns: 1fr; }
+  .topbar-left { flex-wrap: wrap; gap: 8px; }
+}
+@media (max-width: 1399px) {
+  .logo-words .org-sub { display: none; }
+}
+</style>
+</head>
+<body>
+<!-- PRELOADER -->
+<div id="preloader">
+<div class="preloader-inner">
+<div class="preloader-logo"><img alt="IURS" src="assets/logo-iurs.jpg"/></div>
+<div class="preloader-bar"></div>
+<div style="font-size:12px;color:#aaa;font-family:'Inter',sans-serif;">IURS Loading...</div>
+</div>
+</div>
+<!-- TOPBAR -->
+<div class="topbar">
+<div class="container inner">
+<div class="topbar-left">
+<a href="tel:+8801749022577"><i class="fas fa-phone-alt"></i> +880 1749-022577</a>
+<div class="topbar-divider"></div>
+<a href="mailto:iuresearchsociety@gmail.com"><i class="fas fa-envelope"></i> iuresearchsociety@gmail.com</a>
+<div class="topbar-divider"></div>
+<span style="display:flex;align-items:center;gap:6px;font-size:12.5px;"><i class="fas fa-map-marker-alt" style="color:var(--primaryColor);"></i> TSCC, Islamic University, Kushtia-7003</span>
+</div>
+<div class="topbar-right">
+<a href="https://facebook.com/iu.researchsociety" target="_blank" title="Facebook"><i class="fab fa-facebook-f"></i></a>
+<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+<a href="#" title="YouTube"><i class="fab fa-youtube"></i></a>
+<div class="topbar-divider"></div>
+<a class="apply-btn-top" href="https://iurs.org" target="_blank"><i class="fas fa-globe"></i> iurs.org</a>
+</div>
+</div>
+</div>
+<!-- NAVBAR -->
+<nav class="navbar" id="navbar">
+<div class="container nav-inner">
+<a class="logo" href="index.html">
+<div class="logo-mark"><img alt="IURS logo" src="assets/logo-iurs.jpg"/></div>
+<div class="logo-words">
+<span class="org-name">IURS</span>
+<span class="org-sub">Islamic University Research Society</span>
+</div>
+</a>
+<ul class="nav-menu">
+<li><a class="active" href="index.html">Home</a></li>
+<li>
+<a href="events.html">Post &amp; Events <i class="fas fa-chevron-down"></i></a>
+<ul class="dropdown">
+<li><a href="events.html#upcoming">Upcoming Events</a></li>
+<li><a href="events.html#past">Past Events</a></li>
+<li><a href="index.html">Notices</a></li>
+<li><a href="index.html#news">News &amp; Blog</a></li>
+</ul>
+</li>
+<li>
+<a href="executive-committee.html">People <i class="fas fa-chevron-down"></i></a>
+<ul class="dropdown">
+<li><a href="executive-committee.html">Executive Committee</a></li>
+<li><a href="executive-committee.html">General Members</a></li>
+<li><a href="executive-committee.html">Advisors</a></li>
+<li><a href="executive-committee.html">Alumni</a></li>
+</ul>
+</li>
+<li><a href="training-session.html">Training Session</a></li>
+<li><a href="publications.html">Publication</a></li>
+<li><a href="gallery.html">Gallery</a></li>
+<li><a href="about.html">About Us</a></li>
+</ul>
+<div class="nav-cta">
+<a class="btn-login" href="login.html" style="margin-right:8px;">Login</a><a class="btn-apply" href="contact.html">Join IURS</a>
+</div>
+<div class="hamburger" id="hamburger" onclick="toggleMobile()">
+<span></span><span></span><span></span>
+</div>
+</div>
+</nav>
+<!-- MOBILE NAV -->
+<div class="mobile-nav" id="mobile-nav">
+<a href="index.html">Home</a>
+<a href="events.html">Post &amp; Events</a>
+<a href="executive-committee.html">Executives Committee</a>
+<a href="training-session.html">Training Session</a>
+<a href="publications.html">Publication</a>
+<a href="gallery.html">Gallery</a>
+<a href="about.html">About Us</a>
+<a href="login.html" style="color:var(--primaryColor);font-weight:800;margin-top:10px;">Member / Executive Login →</a><a href="https://iurs.org" style="color:var(--primaryColor);font-weight:800;margin-top:10px;" target="_blank">iurs.org →</a>
+</div>
+<!-- ===== HERO ===== -->
+<section class="hero" id="home">
+<div class="hero-slides">
+<div class="hero-slide active"></div>
+<div class="hero-slide"></div>
+<div class="hero-slide"></div>
+</div>
+<div class="hero-accent-bar"></div>
+<div class="container hero-inner">
+<div class="hero-content-grid">
+<!-- Left -->
+<div class="hero-left">
+<div class="hero-badge">
+<span class="hero-badge-dot"></span>
+          Islamic University, Kushtia
+        </div>
+<h1 class="hero-tagline" style="color:#ffffff;text-shadow:0 3px 16px rgba(0,0,0,.65);">
+          Islamic University
+          <em class="line2" style="color:#f6efe7 !important;text-shadow:0 3px 16px rgba(0,0,0,.72) !important;">Research Society</em>
+<span class="line3" style="color:#f6c85f !important;text-shadow:0 3px 16px rgba(0,0,0,.72) !important;">Research can change the world</span>
+</h1>
+<p class="hero-desc" style="color:rgba(255,255,255,.94);text-shadow:0 2px 8px rgba(0,0,0,.45);">
+          Islamic University Research Society (IURS) supports a research-oriented student community through academic learning, collaboration, workshops, publications, and knowledge-sharing initiatives at Islamic University, Kushtia.
+        </p>
+<div class="hero-btns">
+<a class="btn-primary-red" href="contact.html">
+<i class="fas fa-user-plus"></i> Join IURS
+          </a>
+<a class="btn-outline-white" href="publications.html">
+<i class="fas fa-book-open"></i> Research Publications
+          </a>
+<a class="btn-outline-white" href="events.html">
+<i class="fas fa-calendar-alt"></i> Upcoming Events
+          </a>
+</div>
+<div class="hero-stats">
+<div class="hero-stat">
+<span class="h-num" data-live-stat="members" data-suffix="+" data-target="459">459+</span>
+<span class="h-lbl">Members</span>
+</div>
+<div class="hero-stat">
+<span class="h-num" data-live-stat="research_outputs" data-target="7">7</span>
+<span class="h-lbl">Research Outputs</span>
+</div>
+<div class="hero-stat">
+<span class="h-num" data-live-stat="workshops" data-target="6">6</span>
+<span class="h-lbl">Workshops &amp; Training</span>
+</div>
+<div class="hero-stat">
+<span class="h-num" data-live-stat="peer_reviewed" data-target="4">4</span>
+<span class="h-lbl">Peer-reviewed Articles</span>
+</div>
+</div>
+</div>
+<!-- Right panel (DURS style) -->
+<div class="hero-right-panel">
+<div class="hero-panel-card">
+<h4><i class="fas fa-bullhorn"></i> Latest Notices</h4>
+<div class="notice-list">
+<div class="notice-row">
+<span class="ndot urgent"></span>
+<span>Orientation to Research Methodology — 03 May 2026</span>
+</div>
+<div class="notice-row">
+<span class="ndot high"></span>
+<span>Study in Europe: Opportunities, Admissions &amp; Scholarships — 04 Feb 2026</span>
+</div>
+<div class="notice-row">
+<span class="ndot normal"></span>
+<span>Smart Office Tools for University Students — February 2026</span>
+</div>
+<div class="notice-row">
+<span class="ndot normal"></span>
+<span>Member Recruitment 4.1 — membership campaign</span>
+</div>
+</div>
+<a class="panel-link" href="events.html">View all updates <i class="fas fa-arrow-right"></i></a>
+</div>
+<div class="hero-panel-card" data-live-latest-event>
+<div class="event-live-badge">
+<span></span> Latest IURS Program
+          </div>
+<div class="event-title">Orientation to Research Methodology</div>
+<div class="event-details">
+<span><i class="fas fa-calendar-alt"></i> 03 May 2026</span>
+<span><i class="fas fa-clock"></i> 9:30 AM</span>
+<span>IIER Building, Room 101</span>
+</div>
+<a class="panel-link" href="events.html" style="margin-top:12px;">View Event Archive <i class="fas fa-arrow-right"></i></a>
+</div>
+</div>
+</div>
+</div>
+<div class="scroll-down">
+<span>Scroll Down</span>
+<i class="fas fa-chevron-down"></i>
+</div>
+<div class="slider-dots">
+<div class="sdot active" onclick="goSlide(0)"></div>
+<div class="sdot" onclick="goSlide(1)"></div>
+<div class="sdot" onclick="goSlide(2)"></div>
+</div>
+</section>
+<!-- ===== ABOUT ===== -->
+<section class="about-sec" id="about">
+<div class="container">
+<div class="about-grid">
+<!-- Image -->
+<div class="about-image-wrap reveal">
+<div class="about-img-box">
+<img alt="IURS members in a research community activity" src="assets/group-field-day-2025.jpg"/>
+</div>
+<div class="about-badge">
+<span class="big-num">IURS</span>
+<span class="big-txt">Research<br/>Community</span>
+</div>
+</div>
+<!-- Text -->
+<div class="reveal reveal-delay-2">
+<div class="sec-label-inline">About IURS</div>
+<h2 class="sec-h2">
+          Welcome to <span>Islamic University</span><br/>
+<em>Research Society</em>
+</h2>
+<div class="rule"></div>
+<br/>
+<div class="about-tab-btns">
+<button class="about-tab-btn active" onclick="showTab('mission', this)">Mission</button>
+<button class="about-tab-btn" onclick="showTab('vision', this)">Vision</button>
+<button class="about-tab-btn" onclick="showTab('values', this)">Values</button>
+</div>
+<div class="about-tab-content active" id="tab-mission">
+<p>Our mission at <strong>Islamic University Research Society</strong> is to empower students through research, innovation, academic collaboration, and transformative learning experiences that inspire future researchers and youth leaders across Bangladesh and beyond.</p>
+</div>
+<div class="about-tab-content" id="tab-vision">
+<p>Our vision is to establish a strong research culture among students and help <strong>Islamic University, Kushtia</strong> become one of the leading research-oriented universities in Bangladesh through the continuous development of young, capable researchers.</p>
+</div>
+<div class="about-tab-content" id="tab-values">
+<p>IURS is guided by the core values of <strong>Research Excellence &amp; Innovation</strong>, Academic Integrity, Youth Leadership Development, Knowledge Sharing &amp; Creativity, and International Collaboration across all disciplines.</p>
+</div>
+<div class="features-list">
+<div class="feature-item"><i class="fas fa-check-circle"></i> Research Workshops &amp; Conferences</div>
+<div class="feature-item"><i class="fas fa-check-circle"></i> Skilled Faculty &amp; Research Mentors</div>
+<div class="feature-item"><i class="fas fa-check-circle"></i> Youth Leadership Development</div>
+<div class="feature-item"><i class="fas fa-check-circle"></i> International Collaboration</div>
+<div class="feature-item"><i class="fas fa-check-circle"></i> Peer-Reviewed Publications</div>
+<div class="feature-item"><i class="fas fa-check-circle"></i> Annual Research Competition</div>
+</div>
+<div class="dual-btns">
+<a class="btn-red-solid" href="about.html"><i class="fas fa-arrow-right"></i> More About Us</a>
+<a class="btn-red-outline" href="#executive"><i class="fas fa-users"></i> Our Team</a>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ===== STATS BAR ===== -->
+<div class="stats-bar">
+<div class="container">
+<div class="stats-grid">
+<div class="stat-box reveal">
+<div class="stat-icon-wrap"><i class="fas fa-user-graduate"></i></div>
+<span class="stat-num-big"><span class="count" data-suffix="+" data-target="459">459+</span></span>
+<span class="stat-desc">Community Members</span>
+</div>
+<div class="stat-box reveal reveal-delay-1">
+<div class="stat-icon-wrap"><i class="fas fa-flask"></i></div>
+<span class="stat-num-big"><span class="count" data-target="7">7</span></span>
+<span class="stat-desc">Research Outputs</span>
+</div>
+<div class="stat-box reveal reveal-delay-2">
+<div class="stat-icon-wrap"><i class="fas fa-trophy"></i></div>
+<span class="stat-num-big"><span class="count" data-target="1">1</span></span>
+<span class="stat-desc">Best Paper Award</span>
+</div>
+<div class="stat-box reveal reveal-delay-3">
+<div class="stat-icon-wrap"><i class="fas fa-calendar-check"></i></div>
+<span class="stat-num-big"><span class="count" data-suffix="+" data-target="6">6+</span></span>
+<span class="stat-desc">Workshops &amp; Training</span>
+</div>
+</div>
+</div>
+</div>
+<!-- ===== RESEARCH ===== -->
+<section class="research-sec" id="research">
+<div class="container">
+<div class="sec-header reveal">
+<div class="sec-label-inline" style="justify-content:center;">Research</div>
+<h2 class="sec-h2">Featured <span>Research</span></h2>
+<div class="rule" style="margin:14px auto 0;"></div>
+<p style="color:#777;font-size:15px;margin-top:14px;max-width:700px;margin-left:auto;margin-right:auto;">
+        Selected research outputs and publications associated with the IURS research community.
+      </p>
+</div>
+<div class="research-grid"><article class="research-card reveal">
+<div class="rc-top"></div>
+<div class="rc-body">
+<span class="rc-tag">Latest Journal Article</span>
+<h3 class="rc-title">Field-Calibrated Threshold-Distance Assessment of Lead Dispersion from Controlled Lead-Acid Battery Plate Combustion</h3>
+<p class="rc-desc">Latest peer-reviewed article in Environmental Pollution on lead dispersion from controlled lead-acid battery plate combustion.</p>
+<div class="rc-footer"><span>Environmental Pollution · Online 1 Aug 2026</span><a class="rc-link" href="https://www.sciencedirect.com/science/article/abs/pii/S0269749126012236?via%3Dihub" rel="noopener" target="_blank">Read Article <i class="fas fa-arrow-right"></i></a></div>
+</div>
+</article><article class="research-card reveal reveal-delay-1">
+<div class="rc-top"></div>
+<div class="rc-body">
+<span class="rc-tag">Journal Article</span>
+<h3 class="rc-title">Anti-cancer activity elucidation of geissolosimine as an MDM2-p53 interaction inhibitor: An in-silico study</h3>
+<p class="rc-desc">PLOS ONE study on geissolosimine and MDM2-p53 interaction using computational drug-discovery approaches.</p>
+<div class="rc-footer"><span>PLOS ONE · 20(5) · e0323003 · 8 May 2025</span><a class="rc-link" href="https://doi.org/10.1371/journal.pone.0323003" rel="noopener" target="_blank">Read Article <i class="fas fa-arrow-right"></i></a></div>
+</div>
+</article><article class="research-card reveal reveal-delay-2">
+<div class="rc-top"></div>
+<div class="rc-body">
+<span class="rc-tag">Journal Article</span>
+<h3 class="rc-title">Women’s Leadership in Higher Education in Bangladesh: Public and Private University Perspectives</h3>
+<p class="rc-desc">Mixed-methods research on women’s leadership and institutional barriers in Bangladeshi higher education.</p>
+<div class="rc-footer"><span>Public Organization Review · Volume 25 · 23 May 2025</span><a class="rc-link" href="https://link.springer.com/article/10.1007/s11115-025-00864-7" rel="noopener" target="_blank">Read Article <i class="fas fa-arrow-right"></i></a></div>
+</div>
+</article></div>
+<div style="text-align:center;margin-top:44px;">
+<a class="btn-red-outline" href="publications.html"><i class="fas fa-book-open"></i> Browse All Publications</a>
+</div>
+</div>
+</section>
+<!-- ===== RESEARCH FOCUS AREAS ===== -->
+<section style="background:var(--whiteColor);padding:80px 0;">
+<div class="container">
+<div class="sec-header reveal">
+<div class="sec-label-inline" style="justify-content:center;">Our Focus</div>
+<h2 class="sec-h2">Research <span>Focus Areas</span></h2>
+<div class="rule" style="margin:14px auto 0;"></div>
+</div>
+<div class="focus-grid">
+<a class="focus-card reveal" href="#research">
+<i class="fas fa-laptop-code"></i>
+<div>Computer Science</div>
+</a>
+<a class="focus-card reveal reveal-delay-1" href="#research">
+<i class="fas fa-book-quran"></i>
+<div>Islamic Studies</div>
+</a>
+<a class="focus-card reveal reveal-delay-2" href="#research">
+<i class="fas fa-people-group"></i>
+<div>Social Sciences</div>
+</a>
+<a class="focus-card reveal reveal-delay-3" href="#research">
+<i class="fas fa-chart-line"></i>
+<div>Economics &amp; Finance</div>
+</a>
+<a class="focus-card reveal reveal-delay-4" href="#research">
+<i class="fas fa-leaf"></i>
+<div>Environmental Science</div>
+</a>
+</div>
+</div>
+</section>
+<!-- ===== CTA BANNER ===== -->
+<div class="cta-banner">
+<div class="container cta-inner reveal">
+<h2>Join the IURS Research Community</h2>
+<p>Use this call-to-action for verified membership, workshop registration, or publication submission details.</p>
+<div class="cta-btns">
+<a class="btn-white-solid" href="contact.html"><i class="fas fa-user-plus"></i> Membership Info</a>
+<a class="btn-outline-white-solid" href="#about"><i class="fas fa-info-circle"></i> Learn More</a>
+</div>
+</div>
+</div>
+<!-- ===== EXECUTIVE COMMITTEE ===== -->
+<section class="exec-sec" id="executive">
+<div class="container">
+<div class="sec-header reveal">
+<div class="sec-label-inline" style="justify-content:center;">Our Community</div>
+<h2 class="sec-h2">Executive <span>Committee 2025–2026</span></h2>
+<div class="rule" style="margin:14px auto 0;"></div>
+<p style="color:var(--bodyColor);max-width:600px;margin:14px auto 0;">Officially announced 12 August 2025 — a 29-member committee leading IURS for the term 2025–2026.</p>
+</div>
+<div class="exec-grid">
+<div class="exec-card reveal">
+<div class="exec-photo"><div class="exec-photo-placeholder">T</div></div>
+<div class="exec-name">Taqy Wasif</div>
+<div class="exec-role">President</div>
+<div class="exec-dept">Economics</div>
+<div class="exec-socials">
+<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+<a href="#" title="Email"><i class="fas fa-envelope"></i></a>
+</div>
+</div>
+<div class="exec-card reveal reveal-delay-1">
+<div class="exec-photo"><div class="exec-photo-placeholder">E</div></div>
+<div class="exec-name">Elmu Kabir Rafa</div>
+<div class="exec-role">General Secretary</div>
+<div class="exec-dept">Pharmacy</div>
+<div class="exec-socials">
+<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+<a href="#" title="Email"><i class="fas fa-envelope"></i></a>
+</div>
+</div>
+<div class="exec-card reveal reveal-delay-2">
+<div class="exec-photo"><div class="exec-photo-placeholder">F</div></div>
+<div class="exec-name">Farhana Sadika Supti</div>
+<div class="exec-role">Vice-President</div>
+<div class="exec-dept">Development Studies</div>
+<div class="exec-socials">
+<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+<a href="#" title="Email"><i class="fas fa-envelope"></i></a>
+</div>
+</div>
+<div class="exec-card reveal reveal-delay-3">
+<div class="exec-photo"><div class="exec-photo-placeholder">F</div></div>
+<div class="exec-name">Fahim Faisal</div>
+<div class="exec-role">Treasurer</div>
+<div class="exec-dept">Arabic Language and Literature</div>
+<div class="exec-socials">
+<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+<a href="#" title="Email"><i class="fas fa-envelope"></i></a>
+</div>
+</div>
+</div>
+<div style="text-align:center;margin-top:44px;">
+<a class="btn-red-solid" href="executive-committee.html"><i class="fas fa-users"></i> View All Community Members</a>
+</div>
+</div>
+</section>
+<!-- ===== EVENTS ===== -->
+<section class="events-sec" id="events">
+<div class="container">
+<div class="reveal" style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px;">
+<div>
+<div class="sec-label-inline">Upcoming Events</div>
+<h2 class="sec-h2">Join <em>Latest</em> <span>Events</span></h2>
+<div class="rule"></div>
+</div>
+<a class="btn-red-outline" href="events.html" style="font-size:13px;padding:9px 20px;">View More Events <i class="fas fa-arrow-right"></i></a>
+</div>
+<div class="events-grid" data-live-events>
+<div class="event-card reveal">
+<div class="event-thumb has-photo" style="background-image:url('assets/orientation-research-methodology.jpg');background-size:cover;background-position:center;">
+<div class="event-date-stamp">
+<div class="e-month">MAY</div>
+<span class="e-day">03</span>
+<div class="e-year">2026</div>
+</div>
+<span class="event-free-tag">Free</span>
+</div>
+<div class="event-body">
+<div class="event-cat-tag">Orientation</div>
+<div class="event-title">Orientation to Research Methodology</div>
+<div class="event-info">
+<span><i class="fas fa-clock"></i> 9:30 AM · IIER Building, Room 101</span>
+<span><i class="fas fa-map-marker-alt"></i> Islamic University, Kushtia</span>
+</div>
+<p style="font-size:13px;color:#888;line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">Keynote by Professor Mohammed Asaduzzaman, PhD, Dept. of Public Administration. Chair: Taqy Wasif (President). Host: Ashfia Kaniz Fatema.</p>
+<a class="event-link" href="#">View Details <i class="fas fa-arrow-right"></i></a>
+</div>
+</div>
+<div class="event-card reveal reveal-delay-1">
+<div class="event-thumb has-photo" style="background-image:url('assets/event-unveiling-seminar.jpg');background-size:cover;background-position:center;">
+<div class="event-date-stamp">
+<div class="e-month">AUG</div>
+<span class="e-day">12</span>
+<div class="e-year">2025</div>
+</div>
+<span class="event-free-tag">100 BDT</span>
+</div>
+<div class="event-body">
+<div class="event-cat-tag">Seminar</div>
+<div class="event-title">The Unveiling: Research Insights &amp; Leadership Transition</div>
+<div class="event-info">
+<span><i class="fas fa-clock"></i> 9:00 AM – 4:00 PM</span>
+<span><i class="fas fa-map-marker-alt"></i> Gagan Harkara Gallery, Rabindra-Nazrul Arts Building</span>
+</div>
+<p style="font-size:13px;color:#888;line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">Panel seminar with faculty from Bangla, Arabic, Pharmacy, Chemical Engineering, and Social Welfare departments. Sponsored by ResearchMate &amp; Manob Sheba.</p>
+<a class="event-link" href="#">View Details <i class="fas fa-arrow-right"></i></a>
+</div>
+</div>
+<div class="event-card reveal reveal-delay-2">
+<div class="event-thumb has-photo" style="background-image:url('assets/webinar-study-europe.jpg');background-size:cover;background-position:center;">
+<div class="event-date-stamp">
+<div class="e-month">FEB</div>
+<span class="e-day">04</span>
+<div class="e-year">2026</div>
+</div>
+<span class="event-free-tag">Free</span>
+</div>
+<div class="event-body">
+<div class="event-cat-tag">Webinar</div>
+<div class="event-title">Study in Europe: Opportunities, Admissions &amp; Scholarships</div>
+<div class="event-info">
+<span><i class="fas fa-clock"></i> 10:00 PM · Google Meet</span>
+<span><i class="fas fa-map-marker-alt"></i> Online</span>
+</div>
+<p style="font-size:13px;color:#888;line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">Speaker: Mohammad Nazmus Sakib, PhD Candidate, Dept. of Economics, Daugavpils University, Latvia.</p>
+<a class="event-link" href="#">View Details <i class="fas fa-arrow-right"></i></a>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ===== PUBLICATIONS ===== -->
+<section class="pub-sec" id="publications">
+<div class="container">
+<div class="reveal" style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px;">
+<div>
+<div class="sec-label-inline">Publications</div>
+<h2 class="sec-h2"><em>Research</em> <span>Publications</span></h2>
+<div class="rule"></div>
+</div>
+<a class="btn-red-outline" href="publications.html" style="font-size:13px;padding:9px 20px;">View All <i class="fas fa-arrow-right"></i></a>
+</div>
+<div class="pub-grid" data-live-publications>
+<div class="pub-card reveal">
+<div class="pub-thumb">
+<i class="fas fa-book-open"></i>
+<span class="pub-type-txt">Research Journal</span>
+<div class="pub-type-badge">Journal</div>
+<a aria-label="Open publication" class="pub-download" href="https://link.springer.com/article/10.1007/s11115-025-00864-7" rel="noopener" target="_blank"><i class="fas fa-arrow-up-right-from-square"></i></a>
+</div>
+<div class="pub-body">
+<div class="pub-title">Women’s Leadership in Higher Education in Bangladesh: Public and Private University Perspectives</div>
+<div class="pub-meta"><i class="fas fa-calendar"></i> 23 May 2025  |  <i class="fas fa-link"></i> DOI available</div>
+</div>
+</div>
+<div class="pub-card reveal reveal-delay-1">
+<div class="pub-thumb" style="background:linear-gradient(135deg,#0d2030,#1a3a50);">
+<i class="fas fa-file-lines"></i>
+<span class="pub-type-txt">Conference Papers</span>
+<div class="pub-type-badge">Conference</div>
+<div class="pub-download"><i class="fas fa-arrow-down"></i></div>
+</div>
+<div class="pub-body">
+<div class="pub-title">Conference papers and proceedings</div>
+<div class="pub-meta"><i class="fas fa-bookmark"></i> Verified research outputs  |  IURS archive</div>
+</div>
+</div>
+<div class="pub-card reveal reveal-delay-2">
+<div class="pub-thumb" style="background:linear-gradient(135deg,#1f1008,#3a2010);">
+<i class="fas fa-chart-bar"></i>
+<span class="pub-type-txt">Research Reports</span>
+<div class="pub-type-badge">Report</div>
+<div class="pub-download"><i class="fas fa-arrow-down"></i></div>
+</div>
+<div class="pub-body">
+<div class="pub-title">Research reports and working papers</div>
+<div class="pub-meta"><i class="fas fa-bookmark"></i> Verified research outputs  |  IURS archive</div>
+</div>
+</div>
+<div class="pub-card reveal reveal-delay-3">
+<div class="pub-thumb" style="background:linear-gradient(135deg,#0f1f10,#1a3520);">
+<i class="fas fa-newspaper"></i>
+<span class="pub-type-txt">Research Updates</span>
+<div class="pub-type-badge">Updates</div>
+<div class="pub-download"><i class="fas fa-arrow-down"></i></div>
+</div>
+<div class="pub-body">
+<div class="pub-title">New publications will be added here</div>
+<div class="pub-meta"><i class="fas fa-layer-group"></i> Ongoing archive  |  IURS</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ===== IURS IN ACTION ===== -->
+<section class="testimonials-sec" id="voices">
+<div class="container">
+<div class="sec-header reveal">
+<div class="sec-label-inline" style="justify-content:center;">IURS in Action</div>
+<h2 class="sec-h2">Research, Learning &amp; <span>Community</span></h2>
+<div class="rule" style="margin:14px auto 0;"></div>
+<p style="color:#777;font-size:15px;margin-top:14px;max-width:680px;margin-left:auto;margin-right:auto;">
+        A glimpse of the people, programs, and activities that shape the IURS research community.
+      </p>
+</div>
+<div class="testi-grid">
+<article class="testi-card reveal" style="overflow:hidden;">
+<div style="height:205px;background:#f4f5f7;display:flex;align-items:center;justify-content:center;">
+<img alt="IURS members group activity" src="assets/group-standing-2025-05-03.jpg" style="width:100%;height:100%;object-fit:cover;"/>
+</div>
+<div style="padding:18px 20px 20px;">
+<div class="testi-name">Member Community</div>
+<div class="testi-role">IURS members in campus activities</div>
+</div>
+</article>
+<article class="testi-card reveal reveal-delay-1" style="overflow:hidden;">
+<div style="height:205px;background:#f4f5f7;display:flex;align-items:center;justify-content:center;">
+<img alt="IURS research circle activity" src="assets/research-circle-activity-1.jpg" style="width:100%;height:100%;object-fit:cover;"/>
+</div>
+<div style="padding:18px 20px 20px;">
+<div class="testi-name">Research Circles</div>
+<div class="testi-role">Discussion, collaboration &amp; peer learning</div>
+</div>
+</article>
+<article class="testi-card reveal reveal-delay-2" style="overflow:hidden;">
+<div style="height:205px;background:#f4f5f7;display:flex;align-items:center;justify-content:center;">
+<img alt="Best Paper Award at NET INSEARCH International Conference" src="assets/best-paper-award-net-insearch.jpg" style="width:100%;height:100%;object-fit:contain;"/>
+</div>
+<div style="padding:18px 20px 20px;">
+<div class="testi-name">Research Achievement</div>
+<div class="testi-role">Best Paper Award — NET INSEARCH International Conference</div>
+</div>
+</article>
+</div>
+</div>
+</section>
+<!-- ===== NEWS & HIGHLIGHTS ===== -->
+<section class="news-sec" id="news">
+<div class="container">
+<div class="reveal" style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px;">
+<div>
+<div class="sec-label-inline">News &amp; Highlights</div>
+<h2 class="sec-h2">Recent <em>IURS</em> <span>Updates</span></h2>
+<div class="rule"></div>
+</div>
+<a class="btn-red-outline" href="events.html" style="font-size:13px;padding:9px 20px;">View All Events <i class="fas fa-arrow-right"></i></a>
+</div>
+<div class="news-grid">
+<article class="news-card reveal">
+<div class="news-img" style="background-image:url('assets/best-paper-award-net-insearch.jpg');background-size:cover;background-position:center;">
+<span class="news-cat-badge">Achievement</span>
+</div>
+<div class="news-body">
+<div class="news-date"><i class="fas fa-award"></i> Research Achievement</div>
+<div class="news-title">Best Paper Award — NET INSEARCH International Conference</div>
+<p class="news-excerpt">IURS members Rohan, Ayon, and Tisha were recognised with the Best Paper Award at Bangladesh Academy for Rural Development (BARD), Cumilla.</p>
+</div>
+<div class="news-foot"><div class="news-author"><div class="author-avatar"><i class="fas fa-book"></i></div><span>IURS</span></div><a class="read-more-link" href="events.html">See Highlights <i class="fas fa-arrow-right"></i></a></div>
+</article>
+<article class="news-card reveal reveal-delay-1">
+<div class="news-img" style="background-image:url('assets/orientation-research-methodology-2026.jpg');background-size:cover;background-position:center;">
+<span class="news-cat-badge">Orientation</span>
+</div>
+<div class="news-body">
+<div class="news-date"><i class="fas fa-calendar-alt"></i> 03 May 2026</div>
+<div class="news-title">Orientation to Research Methodology</div>
+<p class="news-excerpt">An IURS research methodology orientation featuring Professor Mohammed Asaduzzaman, PhD, as keynote speaker.</p>
+</div>
+<div class="news-foot"><div class="news-author"><div class="author-avatar"><i class="fas fa-users"></i></div><span>IURS</span></div><a class="read-more-link" href="events.html">View Event <i class="fas fa-arrow-right"></i></a></div>
+</article>
+<article class="news-card reveal reveal-delay-2">
+<div class="news-img" style="background-image:url('assets/smart-office-extended-poster.jpg');background-size:cover;background-position:center;">
+<span class="news-cat-badge">Training</span>
+</div>
+<div class="news-body">
+<div class="news-date"><i class="fas fa-calendar-alt"></i> February 2026</div>
+<div class="news-title">Smart Office Tools for University Students</div>
+<p class="news-excerpt">A student-focused training programme covering Word, PowerPoint, Excel, document management, and productivity skills.</p>
+</div>
+<div class="news-foot"><div class="news-author"><div class="author-avatar"><i class="fas fa-graduation-cap"></i></div><span>IURS</span></div><a class="read-more-link" href="training-session.html">Training Details <i class="fas fa-arrow-right"></i></a></div>
+</article>
+</div>
+</div>
+</section>
+<!-- ===== EXPLORE RESEARCH CTA ===== -->
+<div style="background:var(--shadeColor);padding:60px 0;text-align:center;">
+<div class="container reveal">
+<div style="background:var(--navyDark);border-radius:20px;padding:50px 40px;display:grid;grid-template-columns:1fr auto;gap:40px;align-items:center;text-align:left;">
+<div>
+<p style="color:var(--skyColor);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Explore Research Activities</p>
+<h2 style="font-family:var(--font-heading);font-size:32px;font-weight:900;color:#fff;margin-bottom:10px;">Be Part of the Research Revolution</h2>
+<p style="color:rgba(255,255,255,.6);font-size:15px;line-height:1.7;">Join IURS and contribute to a thriving community of researchers, scholars, and innovators at Islamic University, Kushtia.</p>
+<div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+<a href="mailto:iuresearchsociety@gmail.com" style="color:rgba(255,255,255,.65);font-size:14px;display:flex;align-items:center;gap:7px;"><i class="fas fa-envelope" style="color:var(--skyColor);"></i> iuresearchsociety@gmail.com</a>
+<span style="color:rgba(255,255,255,.2);">|</span>
+<a href="tel:+8801749022577" style="color:rgba(255,255,255,.65);font-size:14px;display:flex;align-items:center;gap:7px;"><i class="fas fa-phone" style="color:var(--skyColor);"></i> +880 1749-022577</a>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;min-width:160px;">
+<a class="btn-white-solid" href="contact.html" style="text-align:center;justify-content:center;"><i class="fas fa-user-plus"></i> Join IURS</a>
+<a class="btn-outline-white-solid" href="#research" style="text-align:center;justify-content:center;font-size:14px;"><i class="fas fa-book-open"></i> Browse Research</a>
+</div>
+</div>
+</div>
+</div>
+<!-- ===== FOOTER ===== -->
+<footer id="contact">
+<div class="footer-top">
+<div class="footer-about">
+<div class="footer-logo">
+<div class="footer-logo-mark"><img alt="IURS" src="assets/logo-iurs.jpg" style="width:100%;height:100%;object-fit:contain;"/></div>
+<div>
+<div class="footer-org-name">IURS</div>
+<div class="footer-org-sub">Islamic University Research Society</div>
+</div>
+</div>
+<p>A premier academic research organization at Islamic University, Kushtia, dedicated to advancing knowledge, fostering innovation, and nurturing the next generation of researchers and leaders.</p>
+<div class="footer-socials">
+<a href="#" title="Facebook"><i class="fab fa-facebook-f"></i></a>
+<a href="#" title="Twitter"><i class="fab fa-twitter"></i></a>
+<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+<a href="#" title="YouTube"><i class="fab fa-youtube"></i></a>
+<a href="#" title="Instagram"><i class="fab fa-instagram"></i></a>
+</div>
+</div>
+<div class="footer-col">
+<h4>Quick Links</h4>
+<ul>
+<li><a href="#home"><i class="fas fa-chevron-right"></i> Home</a></li>
+<li><a href="#about"><i class="fas fa-chevron-right"></i> About IURS</a></li>
+<li><a href="#research"><i class="fas fa-chevron-right"></i> Research Archive</a></li>
+<li><a href="#events"><i class="fas fa-chevron-right"></i> Events</a></li>
+<li><a href="#publications"><i class="fas fa-chevron-right"></i> Publications</a></li>
+<li><a href="gallery.html"><i class="fas fa-chevron-right"></i> Gallery</a></li>
+<li><a href="#home"><i class="fas fa-chevron-right"></i> Notices</a></li>
+<li><a href="executive-committee.html"><i class="fas fa-chevron-right"></i> Alumni Network</a></li>
+</ul>
+</div>
+<div class="footer-col">
+<h4>Research Areas</h4>
+<ul>
+<li><a href="#research"><i class="fas fa-chevron-right"></i> Computer Science</a></li>
+<li><a href="#research"><i class="fas fa-chevron-right"></i> Islamic Studies</a></li>
+<li><a href="#research"><i class="fas fa-chevron-right"></i> Social Sciences</a></li>
+<li><a href="#research"><i class="fas fa-chevron-right"></i> Economics &amp; Finance</a></li>
+<li><a href="#research"><i class="fas fa-chevron-right"></i> Environmental Science</a></li>
+<li><a href="#research"><i class="fas fa-chevron-right"></i> Mathematics &amp; Statistics</a></li>
+<li><a href="#research"><i class="fas fa-chevron-right"></i> Languages &amp; Literature</a></li>
+</ul>
+</div>
+<div class="footer-col">
+<h4>Contact</h4>
+<ul class="footer-contact-list">
+<li><i class="fas fa-map-marker-alt"></i> <span>TSCC, Islamic University, Kushtia-7003</span></li>
+<li><i class="fas fa-envelope"></i> <a href="mailto:iuresearchsociety@gmail.com">iuresearchsociety@gmail.com</a></li>
+<li><i class="fas fa-phone-alt"></i> <a href="tel:+8801749022577">+880 1749-022577</a></li>
+<li><i class="fas fa-clock"></i> <span>Sat – Thu: 9:00 AM – 5:00 PM</span></li>
+</ul>
+<!-- Newsletter -->
+<div style="margin-top:20px;">
+<p style="font-size:13px;color:rgba(255,255,255,.45);margin-bottom:10px;">Subscribe to our newsletter</p>
+<div style="display:flex;gap:0;border-radius:8px;overflow:hidden;">
+<input id="newsletter-email" placeholder="Your email..." style="flex:1;padding:10px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-right:none;color:#fff;font-size:13px;outline:none;font-family:var(--font-body);" type="email"/>
+<button onclick="subscribeNewsletter()" onmouseout="this.style.background='var(--primaryColor)'" onmouseover="this.style.background='#730017'" style="background:var(--primaryColor);color:#fff;border:none;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;transition:.2s;" type="button">
+<i class="fas fa-paper-plane"></i>
+</button>
+</div>
+<p id="newsletter-msg" style="font-size:12px;margin-top:8px;min-height:14px;"></p>
+</div>
+</div>
+</div>
+<div class="footer-bottom container">
+<span>© 2026 Islamic University Research Society. All Rights Reserved.</span>
+<span>Designed with <i class="fas fa-heart"></i> for academic excellence</span>
+</div>
+</footer>
+<!-- SCROLL TO TOP -->
+<button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+<i class="fas fa-arrow-up"></i>
+</button>
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+// Preloader
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.getElementById('preloader').classList.add('done');
+    setTimeout(() => document.getElementById('preloader').style.display = 'none', 600);
+  }, 800);
+});
+
+// Navbar scroll effect
+window.addEventListener('scroll', () => {
+  const nb = document.getElementById('navbar');
+  if (window.scrollY > 60) nb.classList.add('scrolled');
+  else nb.classList.remove('scrolled');
+  // Scroll top button
+  const btn = document.getElementById('scroll-top-btn');
+  if (window.scrollY > 400) btn.classList.add('show');
+  else btn.classList.remove('show');
+});
+
+// Mobile nav
+function toggleMobile() {
+  const h = document.getElementById('hamburger');
+  const m = document.getElementById('mobile-nav');
+  h.classList.toggle('open');
+  m.classList.toggle('open');
+}
+document.getElementById('mobile-nav').querySelectorAll('a').forEach(a => {
+  a.addEventListener('click', () => {
+    document.getElementById('hamburger').classList.remove('open');
+    document.getElementById('mobile-nav').classList.remove('open');
+  });
+});
+
+// Hero Slider
+let currentSlide = 0;
+const slides = document.querySelectorAll('.hero-slide');
+const dots = document.querySelectorAll('.sdot');
+function goSlide(n) {
+  slides[currentSlide].classList.remove('active');
+  dots[currentSlide].classList.remove('active');
+  currentSlide = n;
+  slides[currentSlide].classList.add('active');
+  dots[currentSlide].classList.add('active');
+}
+setInterval(() => goSlide((currentSlide + 1) % slides.length), 5000);
+
+// Counter animation
+function animateCount(el) {
+  const target = parseInt(el.dataset.target);
+  const suffix = el.dataset.suffix || '';
+  const duration = 2000;
+  const steps = 60;
+  const increment = target / steps;
+  let current = 0;
+  const timer = setInterval(() => {
+    current += increment;
+    if (current >= target) {
+      el.textContent = target + suffix;
+      clearInterval(timer);
+    } else {
+      el.textContent = Math.floor(current);
+    }
+  }, duration / steps);
+}
+
+
+// Load public counters from D1 when backend is available.
+(async function loadPublicStats(){
+  try {
+    const r = await fetch('/api/public/stats');
+    if (!r.ok) return;
+    const st = await r.json();
+    const map = {
+      members: ['Members', '.hero-stat:nth-child(1) .h-num', '[data-stat=members]'],
+      research_outputs: ['Research Outputs', '.hero-stat:nth-child(2) .h-num', '[data-stat=research_outputs]'],
+      workshops: ['Workshops & Training', '.hero-stat:nth-child(3) .h-num', '[data-stat=workshops]'],
+      peer_reviewed: ['Peer-reviewed Articles', '.hero-stat:nth-child(4) .h-num', '[data-stat=peer_reviewed]']
+    };
+    Object.entries(map).forEach(([key, [, heroSel, extraSel]]) => {
+      if (st[key]?.value) {
+        document.querySelectorAll(heroSel).forEach(el => { el.textContent = st[key].value; el.removeAttribute('data-target'); });
+        document.querySelectorAll(extraSel).forEach(el => el.textContent = st[key].value);
+      }
+    });
+  } catch(e) {}
+})();
+
+// Intersection Observer for animations + counters
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      entry.target.querySelectorAll('[data-target]').forEach(animateCount);
+      io.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.15 });
+
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+// Hero stat counters (trigger on load)
+const heroIO = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.querySelectorAll('.h-num[data-target]').forEach(animateCount);
+      heroIO.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.3 });
+const heroStats = document.querySelector('.hero-stats');
+if (heroStats) heroIO.observe(heroStats);
+
+// About tabs
+function showTab(id, btn) {
+  document.querySelectorAll('.about-tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.about-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const id = a.getAttribute('href');
+    if (id && id.length > 1) {
+      const el = document.querySelector(id);
+      if (el) { e.preventDefault(); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    }
+  });
+});
+
+// Newsletter subscribe (client-side only — no backend on this static site)
+function subscribeNewsletter() {
+  const input = document.getElementById('newsletter-email');
+  const msg = document.getElementById('newsletter-msg');
+  const email = input.value.trim();
+  const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!isValid) {
+    msg.textContent = 'Please enter a valid email address.';
+    msg.style.color = '#ffb4b4';
+    return;
+  }
+  msg.textContent = 'Thanks for subscribing! We will be in touch.';
+  msg.style.color = '#9fe6a0';
+  input.value = '';
+}
+</script>
+<script src="assets/iurs-live.js"></script>
+</body>
+</html>
