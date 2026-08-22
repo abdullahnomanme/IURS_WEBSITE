@@ -1,0 +1,11 @@
+# Windows executes these two files directly; cmd.exe can mis-parse a .bat file
+# that has Unix line endings, so pin them to CRLF no matter what platform
+# checks the repository out.
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+*.sql  text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.md   text eol=lf

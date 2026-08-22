@@ -1,7 +1,14 @@
 {
-  "name":"iurs-website-fullstack",
-  "private":true,
-  "version":"2.0.0",
-  "scripts":{"dev":"wrangler dev","deploy":"wrangler deploy","db:migrate":"wrangler d1 migrations apply iurs-production --remote"},
-  "devDependencies":{"wrangler":"^4.102.0"}
+  "name": "iurs-website-fullstack",
+  "private": true,
+  "version": "2.0.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply iurs-production --remote",
+    "test": "node tests/run.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.102.0"
+  }
 }

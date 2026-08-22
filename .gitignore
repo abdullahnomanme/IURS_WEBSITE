@@ -3,3 +3,10 @@ node_modules/
 .dev.vars
 .env
 *.log
+
+# temporary deploy-time config written by deploy.ps1 when R2 is available
+wrangler.deploy.jsonc
+
+# generated copies of the Worker used only by the tests
+tests/index.mjs
+tests/seed.js
