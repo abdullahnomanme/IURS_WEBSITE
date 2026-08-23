@@ -8,7 +8,7 @@
 <meta content="Contact Islamic University Research Society." name="description"/>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700;8..60,800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 <link href="assets/iurs-polish.css" rel="stylesheet"/>
 <style>
@@ -16,20 +16,20 @@
    DURS EXACT THEME VARIABLES (from univet-inline-css)
    ============================================================ */
 :root {
-  --primaryColor:   #960b27;
-  --primaryDark:    #730017;
-  --primaryLight:   #b01535;
-  --secondaryColor: #030303;
-  --bodyColor:      #4c4c4c;
-  --titleColor:     #030303;
-  --borderColor:    #e7e1d4;
-  --shadeColor:     #f6f4ee;
-  --navyColor:      #051435;
-  --navyDark:       #06101f;
-  --skyColor:       #fdc72f;
+  --primaryColor:   #a4112f;
+  --primaryDark:    #7c0a20;
+  --primaryLight:   #c62a4c;
+  --secondaryColor: #10141c;
+  --bodyColor:      #4a5160;
+  --titleColor:     #10141c;
+  --borderColor:    #e5e8ef;
+  --shadeColor:     #f6f7fb;
+  --navyColor:      #0a1836;
+  --navyDark:       #060f24;
+  --skyColor:       #f6c445;
   --whiteColor:     #ffffff;
-  --font-body:      'Inter', sans-serif;
-  --font-heading:   'Bitter', serif;
+  --font-body:      'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading:   'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* ============================================================
@@ -955,7 +955,12 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
   font-weight: 700; font-family: var(--font-heading); cursor: pointer; transition: .2s;
 }
 .contact-form button:hover { background: var(--primaryDark); }
-.contact-map-box { border-radius: 14px; overflow: hidden; aspect-ratio: 16/10; background: var(--shadeColor); display: flex; align-items: center; justify-content: center; color: #5f6672; font-size: 30px; margin-top: 20px; }
+.contact-map-box { border-radius: 14px; overflow: hidden; aspect-ratio: 16/10; background: var(--shadeColor); margin-top: 20px; border: 1px solid var(--borderColor); box-shadow: 0 14px 34px rgba(16,20,28,.10); }
+.contact-map-box iframe { filter: saturate(1.05); }
+.contact-map-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; font: 700 13px var(--font-body); color: var(--titleColor); text-decoration: none; background: var(--shadeColor); border: 1px solid var(--borderColor); border-radius: 999px; padding: 9px 16px; transition: .2s; }
+.contact-map-link:hover { background: var(--primaryColor); border-color: var(--primaryColor); color: #fff; }
+.contact-map-link i { color: var(--primaryColor); }
+.contact-map-link:hover i { color: #fff; }
 @media (max-width: 900px) { .contact-grid { grid-template-columns: 1fr; } }
 @media (max-width: 1399px) {
   .logo-words .org-sub { display: none; }
@@ -976,7 +981,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <div class="preloader-inner">
 <div class="preloader-logo"><img decoding="async" width="512" height="512" alt="IURS" src="assets/logo-iurs.webp"/></div>
 <div class="preloader-bar"></div>
-<div style="font-size:12px;color:#aaa;font-family:'Inter',sans-serif;">IURS Loading...</div>
+<div style="font-size:12px;color:#aaa;font-family:'Poppins','Inter',system-ui,sans-serif;">IURS Loading...</div>
 </div>
 </div>
 <!-- TOPBAR -->
@@ -990,9 +995,9 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;"><i class="fas fa-map-marker-alt" style="color:var(--primaryColor);"></i> TSCC, Islamic University, Kushtia-7003</span>
 </div>
 <div class="topbar-right">
-<a href="https://facebook.com/iu.researchsociety" target="_blank" title="Facebook"><i class="fab fa-facebook-f"></i></a>
-<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-<a href="#" title="YouTube"><i class="fab fa-youtube"></i></a>
+<div class="topbar-divider"></div>
+<a class="topbar-login" href="login.html" title="Executive and member sign-in"><i class="fas fa-lock"></i> Login</a>
+<a href="https://www.facebook.com/iuresearchsociety/" target="_blank" title="Facebook"><i class="fab fa-facebook-f"></i></a>
 <div class="topbar-divider"></div>
 <a class="apply-btn-top" href="https://iurs.org" target="_blank"><i class="fas fa-globe"></i> iurs.org</a>
 </div>
@@ -1012,7 +1017,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <li><a href="index.html">Home</a></li><li><a href="events.html">Post &amp; Events <i class="fas fa-chevron-down"></i></a><ul class="dropdown"><li><a href="events.html#upcoming">Upcoming Events</a></li><li><a href="events.html#past">Past Events</a></li><li><a href="index.html">Notices</a></li><li><a href="blog.html">News &amp; Blog</a></li></ul></li><li><a href="executive-committee.html">People <i class="fas fa-chevron-down"></i></a><ul class="dropdown"><li><a href="executive-committee.html">Executive Committee</a></li><li><a href="executive-committee.html">General Members</a></li><li><a href="executive-committee.html">Advisors</a></li><li><a href="alumni.html">Alumni</a></li></ul></li><li><a href="training-session.html">Training Session</a></li><li><a href="publications.html">Publication</a></li><li><a href="gallery.html">Gallery</a></li><li><a class="active" href="about.html">About Us</a></li>
 </ul>
 <div class="nav-cta">
-<a class="btn-login" href="login.html" style="margin-right:8px;">Login</a><a class="btn-apply" href="join.html">Join IURS</a>
+<a class="btn-apply" href="join.html">Join IURS</a>
 </div>
 <div class="hamburger" id="hamburger" onclick="toggleMobile()">
 <span></span><span></span><span></span>
@@ -1056,7 +1061,16 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <i class="fas fa-phone-alt"></i>
 <div><div class="ci-title">Phone</div><div class="ci-text">+880 1749-022577</div></div>
 </div>
-<div class="contact-map-box"><i class="fas fa-map"></i></div>
+<div class="contact-info-card">
+<i class="fab fa-facebook-f"></i>
+<div><div class="ci-title">Facebook</div><div class="ci-text"><a href="https://www.facebook.com/iuresearchsociety/" target="_blank" rel="noopener" style="color:var(--primaryColor);text-decoration:none;font-weight:600">facebook.com/iuresearchsociety</a></div></div>
+</div>
+<!-- Campus map. loading="lazy" keeps the iframe off the critical path; the
+     ?output=embed form needs no API key and no cookie consent banner. -->
+<div class="contact-map-box">
+<iframe title="Islamic University, Kushtia on Google Maps" src="https://www.google.com/maps?q=Islamic%20University%2C%20Kushtia%207003%2C%20Bangladesh&amp;z=15&amp;output=embed" width="100%" height="100%" style="border:0;display:block" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+</div>
+<a class="contact-map-link" href="https://www.google.com/maps/search/?api=1&amp;query=Islamic+University%2C+Kushtia-7003%2C+Bangladesh" target="_blank" rel="noopener"><i class="fas fa-diamond-turn-right"></i> Open directions in Google Maps</a>
 </div>
 <div class="contact-form">
 <h3 style="font-family:var(--font-heading);font-weight:800;color:var(--titleColor);margin-bottom:18px;">Send a Message</h3>
@@ -1083,11 +1097,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 </div>
 <p>A premier academic research organization at Islamic University, Kushtia, dedicated to advancing knowledge, fostering innovation, and nurturing the next generation of researchers and leaders.</p>
 <div class="footer-socials">
-<a href="#" title="Facebook"><i class="fab fa-facebook-f"></i></a>
-<a href="#" title="Twitter"><i class="fab fa-twitter"></i></a>
-<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-<a href="#" title="YouTube"><i class="fab fa-youtube"></i></a>
-<a href="#" title="Instagram"><i class="fab fa-instagram"></i></a>
+<a href="https://www.facebook.com/iuresearchsociety/" target="_blank" rel="noopener" title="Facebook"><i class="fab fa-facebook-f"></i></a>
 </div>
 </div>
 <div class="footer-col">
@@ -1128,7 +1138,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <p style="font-size:13px;color:rgba(255,255,255,.45);margin-bottom:10px;">Subscribe to our newsletter</p>
 <div style="display:flex;gap:0;border-radius:8px;overflow:hidden;">
 <input id="newsletter-email" placeholder="Your email..." style="flex:1;padding:10px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-right:none;color:#fff;font-size:13px;font-family:var(--font-body);" type="email"/>
-<button onclick="subscribeNewsletter()" onmouseout="this.style.background='var(--primaryColor)'" onmouseover="this.style.background='#730017'" style="background:var(--primaryColor);color:#fff;border:none;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;transition:.2s;" type="button">
+<button onclick="subscribeNewsletter()" onmouseout="this.style.background='var(--primaryColor)'" onmouseover="this.style.background='#7c0a20'" style="background:var(--primaryColor);color:#fff;border:none;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;transition:.2s;" type="button">
 <i class="fas fa-paper-plane"></i>
 </button>
 </div>

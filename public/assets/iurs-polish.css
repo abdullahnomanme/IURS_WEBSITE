@@ -1,7 +1,7 @@
 /* IURS 2026 visual polish + responsive layer */
 :root {
   --font-body: 'Inter', sans-serif;
-  --font-heading: 'Source Serif 4', Georgia, serif;
+  --font-heading: 'Poppins','Inter',system-ui,sans-serif;
   --ui-radius: 14px;
   --content-max: 1240px;
 }
@@ -276,7 +276,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: 3px solid #960b27;
+  outline: 3px solid #a4112f;
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -312,4 +312,136 @@ textarea:focus-visible,
 }
 @media (max-width: 420px) {
   .hero-tagline .line3 { font-size: 13.5px !important; margin-top: 9px; letter-spacing: .03em; }
+}
+
+/* ============================================================
+   2026 modern pass — loaded on every page, so it is the single
+   place to adjust the look. Overrides live here rather than in
+   fifteen inline <style> blocks.
+   ============================================================ */
+
+/* ---- Top bar: Login now lives here, small, because it is only for
+   executives. It used to sit in the main navigation competing with
+   "Join IURS", which is the link an actual visitor wants. ---- */
+.topbar-login {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 700 11.5px var(--font-body); letter-spacing: .02em;
+  color: #fff !important; text-decoration: none;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 999px; padding: 4px 12px;
+  transition: background .2s, border-color .2s, transform .2s;
+  white-space: nowrap;
+}
+.topbar-login i { font-size: 9.5px; opacity: .85; }
+.topbar-login:hover {
+  background: var(--primaryColor); border-color: var(--primaryColor);
+  transform: translateY(-1px);
+}
+.topbar-login:focus-visible { outline: 2px solid var(--skyColor); outline-offset: 2px; }
+@media (max-width: 560px) { .topbar-login span, .topbar-login { font-size: 11px; padding: 3px 10px; } }
+
+/* ---- Typography: Poppins is geometric, so it wants slightly tighter
+   tracking at display sizes and a touch more line-height in body copy. ---- */
+h1, h2, h3, .sec-title, .iu-subhead, .exec-name {
+  letter-spacing: -.018em;
+}
+h1, .hero h1 { letter-spacing: -.026em; }
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.sec-label, .sec-label-inline { letter-spacing: .14em; }
+
+/* ---- Executive committee cards ---- */
+.exec-grid { gap: 24px; }
+.exec-card {
+  border: 1px solid var(--borderColor);
+  border-radius: 20px;
+  padding: 34px 22px 26px;
+  box-shadow: 0 2px 4px rgba(16,20,28,.03), 0 12px 30px -14px rgba(16,20,28,.14);
+  transition: transform .34s cubic-bezier(.2,.7,.3,1), box-shadow .34s, border-color .34s;
+}
+/* The accent bar grows from the middle on hover instead of just sitting there. */
+.exec-card::before {
+  height: 4px; border-radius: 20px 20px 0 0;
+  left: 50%; right: auto; width: 46%;
+  transform: translateX(-50%);
+  transition: width .38s cubic-bezier(.2,.7,.3,1);
+}
+.exec-card:hover {
+  transform: translateY(-8px);
+  border-color: rgba(164,17,47,.20);
+  box-shadow: 0 4px 8px rgba(16,20,28,.04), 0 30px 60px -22px rgba(164,17,47,.30);
+}
+.exec-card:hover::before { width: 100%; }
+.exec-photo {
+  width: 104px; height: 104px; border: 0; padding: 4px;
+  background: linear-gradient(140deg, var(--primaryColor), var(--skyColor));
+  box-shadow: 0 10px 26px -10px rgba(164,17,47,.55);
+  transition: transform .34s cubic-bezier(.2,.7,.3,1);
+}
+.exec-photo img, .exec-photo-placeholder { border-radius: 50%; }
+.exec-card:hover .exec-photo { transform: scale(1.05) rotate(-2deg); }
+.exec-name { font-size: 16.5px; font-weight: 800; }
+.exec-role {
+  display: inline-block; font-size: 11.5px; font-weight: 800;
+  letter-spacing: .05em; text-transform: uppercase;
+  background: rgba(164,17,47,.08); color: var(--primaryColor);
+  border-radius: 999px; padding: 4px 11px; margin: 4px 0 8px;
+}
+.exec-dept { font-size: 12.5px; color: var(--bodyColor); margin-bottom: 16px; }
+.exec-socials a {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: var(--shadeColor); border: 1px solid var(--borderColor);
+  color: var(--bodyColor); display: inline-flex; align-items: center;
+  justify-content: center; font-size: 12.5px; transition: .2s;
+}
+.exec-socials a:hover {
+  background: var(--primaryColor); border-color: var(--primaryColor);
+  color: #fff; transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 8px 16px -6px rgba(164,17,47,.55);
+}
+
+/* ---- Cards and buttons across the site: softer radii, layered shadows,
+   and a lift on hover instead of a flat colour change. ---- */
+.pub-card, .event-card, .notice-card, .gallery-card, .blog-card,
+.alumni-card, .training-card, .iu-why-item, .research-card, .stat-box {
+  transition: transform .3s cubic-bezier(.2,.7,.3,1), box-shadow .3s, border-color .3s;
+}
+.pub-card:hover, .event-card:hover, .notice-card:hover, .blog-card:hover,
+.alumni-card:hover, .training-card:hover, .research-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 3px 6px rgba(16,20,28,.04), 0 26px 50px -20px rgba(16,20,28,.24);
+}
+.btn-apply, .apply-btn-top, .hero-btn, .iu-submit, .btn-primary {
+  transition: background .2s, transform .2s, box-shadow .2s;
+}
+.btn-apply:hover, .hero-btn:hover, .iu-submit:hover, .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -10px rgba(164,17,47,.55);
+}
+
+/* ---- Focus visibility. Keyboard users could not see where they were. ---- */
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--primaryColor);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---- Selection and scrollbar in the brand colour ---- */
+::selection { background: rgba(164,17,47,.16); color: var(--titleColor); }
+@media (min-width: 900px) {
+  * { scrollbar-width: thin; scrollbar-color: #c3cad6 transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb { background: #c8cfda; border-radius: 999px; border: 3px solid #fff; }
+  *::-webkit-scrollbar-thumb:hover { background: var(--primaryColor); }
+}
+
+/* ---- Respect the reduce-motion preference: none of the above is content. ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .exec-card:hover, .pub-card:hover, .event-card:hover { transform: none; }
 }

@@ -6,10 +6,10 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Islamic University Research Society (IURS)</title>
 <meta content="IURS is a premier academic research organization at Islamic University, Kushtia, dedicated to fostering research excellence and innovation." name="description"/>
-<!-- EXACT DURS FONTS: Inter + Bitter -->
+<!-- Site fonts: Poppins (headings + body), Inter as fallback -->
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700;8..60,800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 <link href="assets/iurs-polish.css" rel="stylesheet"/>
 <style>
@@ -17,20 +17,20 @@
    DURS EXACT THEME VARIABLES (from univet-inline-css)
    ============================================================ */
 :root {
-  --primaryColor:   #960b27;
-  --primaryDark:    #730017;
-  --primaryLight:   #b01535;
-  --secondaryColor: #030303;
-  --bodyColor:      #4c4c4c;
-  --titleColor:     #030303;
-  --borderColor:    #e7e1d4;
-  --shadeColor:     #f6f4ee;
-  --navyColor:      #051435;
-  --navyDark:       #06101f;
-  --skyColor:       #fdc72f;
+  --primaryColor:   #a4112f;
+  --primaryDark:    #7c0a20;
+  --primaryLight:   #c62a4c;
+  --secondaryColor: #10141c;
+  --bodyColor:      #4a5160;
+  --titleColor:     #10141c;
+  --borderColor:    #e5e8ef;
+  --shadeColor:     #f6f7fb;
+  --navyColor:      #0a1836;
+  --navyDark:       #060f24;
+  --skyColor:       #f6c445;
   --whiteColor:     #ffffff;
-  --font-body:      'Inter', sans-serif;
-  --font-heading:   'Bitter', serif;
+  --font-body:      'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading:   'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* ============================================================
@@ -891,7 +891,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <div class="preloader-inner">
 <div class="preloader-logo"><img decoding="async" width="512" height="512" alt="IURS" src="assets/logo-iurs.webp"/></div>
 <div class="preloader-bar"></div>
-<div style="font-size:12px;color:#aaa;font-family:'Inter',sans-serif;">IURS Loading...</div>
+<div style="font-size:12px;color:#aaa;font-family:'Poppins','Inter',system-ui,sans-serif;">IURS Loading...</div>
 </div>
 </div>
 <!-- TOPBAR -->
@@ -905,9 +905,9 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;"><i class="fas fa-map-marker-alt" style="color:var(--primaryColor);"></i> TSCC, Islamic University, Kushtia-7003</span>
 </div>
 <div class="topbar-right">
-<a href="https://facebook.com/iu.researchsociety" target="_blank" title="Facebook"><i class="fab fa-facebook-f"></i></a>
-<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-<a href="#" title="YouTube"><i class="fab fa-youtube"></i></a>
+<div class="topbar-divider"></div>
+<a class="topbar-login" href="login.html" title="Executive and member sign-in"><i class="fas fa-lock"></i> Login</a>
+<a href="https://www.facebook.com/iuresearchsociety/" target="_blank" title="Facebook"><i class="fab fa-facebook-f"></i></a>
 <div class="topbar-divider"></div>
 <a class="apply-btn-top" href="https://iurs.org" target="_blank"><i class="fas fa-globe"></i> iurs.org</a>
 </div>
@@ -949,7 +949,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <li><a href="about.html">About Us</a></li>
 </ul>
 <div class="nav-cta">
-<a class="btn-login" href="login.html" style="margin-right:8px;">Login</a><a class="btn-apply" href="join.html">Join IURS</a>
+<a class="btn-apply" href="join.html">Join IURS</a>
 </div>
 <div class="hamburger" id="hamburger" onclick="toggleMobile()">
 <span></span><span></span><span></span>
@@ -1129,23 +1129,23 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <div class="stats-grid">
 <div class="stat-box reveal">
 <div class="stat-icon-wrap"><i class="fas fa-user-graduate"></i></div>
-<span class="stat-num-big"><span class="count" data-suffix="+" data-target="459">459+</span></span>
-<span class="stat-desc">Community Members</span>
+<span class="stat-num-big"><span class="count" data-live-stat="members" data-suffix="+" data-target="459">459+</span></span>
+<span class="stat-desc" data-live-stat-label="members">Community Members</span>
 </div>
 <div class="stat-box reveal reveal-delay-1">
 <div class="stat-icon-wrap"><i class="fas fa-flask"></i></div>
-<span class="stat-num-big"><span class="count" data-target="7">7</span></span>
-<span class="stat-desc">Research Outputs</span>
+<span class="stat-num-big"><span class="count" data-live-stat="research_outputs" data-target="7">7</span></span>
+<span class="stat-desc" data-live-stat-label="research_outputs">Research Outputs</span>
 </div>
 <div class="stat-box reveal reveal-delay-2">
 <div class="stat-icon-wrap"><i class="fas fa-trophy"></i></div>
-<span class="stat-num-big"><span class="count" data-target="1">1</span></span>
-<span class="stat-desc">Best Paper Award</span>
+<span class="stat-num-big"><span class="count" data-live-stat="best_paper" data-target="1">1</span></span>
+<span class="stat-desc" data-live-stat-label="best_paper">Best Paper Award</span>
 </div>
 <div class="stat-box reveal reveal-delay-3">
 <div class="stat-icon-wrap"><i class="fas fa-calendar-check"></i></div>
-<span class="stat-num-big"><span class="count" data-suffix="+" data-target="6">6+</span></span>
-<span class="stat-desc">Workshops &amp; Training</span>
+<span class="stat-num-big"><span class="count" data-live-stat="workshops" data-suffix="+" data-target="6">6+</span></span>
+<span class="stat-desc" data-live-stat-label="workshops">Workshops &amp; Training</span>
 </div>
 </div>
 </div>
@@ -1250,7 +1250,6 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <div class="exec-role">President</div>
 <div class="exec-dept">Economics</div>
 <div class="exec-socials">
-<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
 <a href="#" title="Email"><i class="fas fa-envelope"></i></a>
 </div>
 </div>
@@ -1260,7 +1259,6 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <div class="exec-role">General Secretary</div>
 <div class="exec-dept">Pharmacy</div>
 <div class="exec-socials">
-<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
 <a href="#" title="Email"><i class="fas fa-envelope"></i></a>
 </div>
 </div>
@@ -1270,7 +1268,6 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <div class="exec-role">Vice-President</div>
 <div class="exec-dept">Development Studies</div>
 <div class="exec-socials">
-<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
 <a href="#" title="Email"><i class="fas fa-envelope"></i></a>
 </div>
 </div>
@@ -1280,7 +1277,6 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <div class="exec-role">Treasurer</div>
 <div class="exec-dept">Arabic Language and Literature</div>
 <div class="exec-socials">
-<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
 <a href="#" title="Email"><i class="fas fa-envelope"></i></a>
 </div>
 </div>
@@ -1552,11 +1548,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 </div>
 <p>A premier academic research organization at Islamic University, Kushtia, dedicated to advancing knowledge, fostering innovation, and nurturing the next generation of researchers and leaders.</p>
 <div class="footer-socials">
-<a href="#" title="Facebook"><i class="fab fa-facebook-f"></i></a>
-<a href="#" title="Twitter"><i class="fab fa-twitter"></i></a>
-<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-<a href="#" title="YouTube"><i class="fab fa-youtube"></i></a>
-<a href="#" title="Instagram"><i class="fab fa-instagram"></i></a>
+<a href="https://www.facebook.com/iuresearchsociety/" target="_blank" rel="noopener" title="Facebook"><i class="fab fa-facebook-f"></i></a>
 </div>
 </div>
 <div class="footer-col">
@@ -1597,7 +1589,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <p style="font-size:13px;color:rgba(255,255,255,.45);margin-bottom:10px;">Subscribe to our newsletter</p>
 <div style="display:flex;gap:0;border-radius:8px;overflow:hidden;">
 <input id="newsletter-email" placeholder="Your email..." style="flex:1;padding:10px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-right:none;color:#fff;font-size:13px;font-family:var(--font-body);" type="email"/>
-<button onclick="subscribeNewsletter()" onmouseout="this.style.background='var(--primaryColor)'" onmouseover="this.style.background='#730017'" style="background:var(--primaryColor);color:#fff;border:none;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;transition:.2s;" type="button">
+<button onclick="subscribeNewsletter()" onmouseout="this.style.background='var(--primaryColor)'" onmouseover="this.style.background='#7c0a20'" style="background:var(--primaryColor);color:#fff;border:none;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;transition:.2s;" type="button">
 <i class="fas fa-paper-plane"></i>
 </button>
 </div>
@@ -1666,13 +1658,18 @@ setInterval(() => goSlide((currentSlide + 1) % slides.length), 5000);
 
 // Counter animation
 function animateCount(el) {
+  // A number that has already been filled in from the database must not be
+  // overwritten by the hardcoded fallback, even if this animation started first.
+  if (el.dataset.liveDone) return;
   const target = parseInt(el.dataset.target);
+  if (!isFinite(target)) return;
   const suffix = el.dataset.suffix || '';
   const duration = 2000;
   const steps = 60;
   const increment = target / steps;
   let current = 0;
   const timer = setInterval(() => {
+    if (el.dataset.liveDone) { clearInterval(timer); return; }
     current += increment;
     if (current >= target) {
       el.textContent = target + suffix;
@@ -1684,26 +1681,11 @@ function animateCount(el) {
 }
 
 
-// Load public counters from D1 when backend is available.
-(async function loadPublicStats(){
-  try {
-    const r = await fetch('/api/public/stats');
-    if (!r.ok) return;
-    const st = await r.json();
-    const map = {
-      members: ['Members', '.hero-stat:nth-child(1) .h-num', '[data-stat=members]'],
-      research_outputs: ['Research Outputs', '.hero-stat:nth-child(2) .h-num', '[data-stat=research_outputs]'],
-      workshops: ['Workshops & Training', '.hero-stat:nth-child(3) .h-num', '[data-stat=workshops]'],
-      peer_reviewed: ['Peer-reviewed Articles', '.hero-stat:nth-child(4) .h-num', '[data-stat=peer_reviewed]']
-    };
-    Object.entries(map).forEach(([key, [, heroSel, extraSel]]) => {
-      if (st[key]?.value) {
-        document.querySelectorAll(heroSel).forEach(el => { el.textContent = st[key].value; el.removeAttribute('data-target'); });
-        document.querySelectorAll(extraSel).forEach(el => el.textContent = st[key].value);
-      }
-    });
-  } catch(e) {}
-})();
+/* Public counters are loaded by assets/iurs-live.js, which drives every
+   [data-live-stat] element on the page. The block that used to live here fetched
+   the same endpoint a second time and only knew about the four hero pills — the
+   stats bar further down was never in its list, which is why an edit in the
+   admin panel moved the hero number but not the one below it. */
 
 // Intersection Observer for animations + counters
 const io = new IntersectionObserver((entries) => {

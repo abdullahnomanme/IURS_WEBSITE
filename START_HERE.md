@@ -11,9 +11,29 @@ visitor. That is fixed. The website now also has a working control panel, so you
 add notices, upload gallery photos, and manage members yourself without ever opening
 a code file.
 
-Everything is finished and tested on my side. **The only thing left is publishing it,
-and that needs your Cloudflare login — which I do not have and should not have.**
-It is one double-click. Instructions are in "What you need to do" below.
+**The site is now live and nothing is left to do.** It is published at
+https://iurs.abdullahnoman-me.workers.dev and the control panel works. You can log in
+straight away — see "How to log in" below.
+
+## How the site gets updated now
+
+This GitHub repository is connected to Cloudflare Workers Builds. **Anything pushed to
+the `main` branch publishes itself automatically** — there is no command to run and
+`DEPLOY.bat` is no longer needed for ordinary updates.
+
+If a push ever contains a mistake that stops the site from building, Cloudflare keeps
+the last working version online instead of publishing the broken one, so the website
+cannot go down that way.
+
+`DEPLOY.bat` still works and is still safe to run. It is only useful now if you ever
+need to publish from your own computer without going through GitHub.
+
+## How to log in
+
+Go to https://iurs.abdullahnoman-me.workers.dev/login.html and type your **IURS ID**
+(`IURS26`) in the first box — an IURS ID, not an email address — and your password
+below it. Change the password whenever you like from the **Security** tab inside the
+control panel.
 
 ---
 
@@ -155,6 +175,11 @@ boundary, and the deployment script itself. All 287 pass. Specifically confirmed
 
 ## What you need to do
 
+> **Already live?** The site is deployed at `https://iurs.abdullahnoman-me.workers.dev`
+> and the `IURS26` administrator account already exists, so Steps 1–4 below are only
+> for setting the project up somewhere new. To publish a change to the live site, push
+> to `main` (Workers Builds deploys it) or run `npx wrangler deploy`.
+
 **Step 1 — install Node.js, once.** Go to https://nodejs.org and click the big **LTS**
 button. Accept the defaults. This is a one-time thing.
 
@@ -182,7 +207,7 @@ any file in this project, not stored in readable form anywhere, and not on GitHu
 copy it before closing the window. The account is `Abdullah Al Noman`, `Office Secretary`,
 with administrator rights.
 
-**Step 4 — log in at `/login.html`.** Type `IURS26` in the **IURS ID** box (not an email
+**Step 4 — log in at `/login`.** Type `IURS26` in the **IURS ID** box (not an email
 address) and the temporary password below it. The control panel then opens straight on
 the **Security** tab with every other tab locked, and asks you to set your own password:
 type the temporary one as "Current Password", choose a new one of at least 10 characters,
@@ -195,6 +220,35 @@ installer.
 
 If you ever run `deploy.ps1` again it will *not* create a second administrator and will
 *not* change your password — it just republishes the site.
+
+---
+
+## Running member recruitment
+
+The public **Join IURS** form is closed by default and is controlled entirely from the
+dashboard's **Recruitment Window** tab. Nothing here needs a code change.
+
+1. **Open the intake.** Tick *Recruitment is open*. Optionally set *Opens on* / *Closes
+   on* — inside those dates the form works, outside them it closes on its own, so you can
+   set an intake up in advance and forget about it. Leaving both blank means the switch
+   alone decides.
+2. **Set the fee.** Fee, currency, the note under it, the payment methods (comma
+   separated) and the bKash/Nagad number to pay to. Untick *Require a membership fee* for
+   a free intake and the payment fields disappear from the public form.
+3. **Applications arrive with `payment_status = unverified`.** The transaction ID has to
+   be unique — a second application quoting the same one is refused.
+4. **Verify the money, then approve.** On the **Join Applications** tab, match the
+   transaction ID against the receiving account and press *Verify payment*. Trying to
+   approve an application whose payment is still unverified is refused by the server, not
+   just hidden in the interface — so it cannot be done by accident or by calling the API
+   directly.
+5. **Export.** *Download Excel (.xlsx)* and *Download CSV* honour whatever status,
+   payment and search filters are on screen. The workbook is a real OOXML file with a
+   frozen, filterable header row, so Excel and Google Sheets both open it directly.
+
+When the window is closed the Join page shows your closed message and a link to the
+Facebook page instead of the form, and the server refuses every submission — posting to
+the API by hand does not get around it.
 
 ---
 

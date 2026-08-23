@@ -5,20 +5,20 @@
    DURS EXACT THEME VARIABLES (from univet-inline-css)
    ============================================================ */
 :root {
-  --primaryColor:   #960b27;
-  --primaryDark:    #730017;
-  --primaryLight:   #b01535;
-  --secondaryColor: #030303;
-  --bodyColor:      #4c4c4c;
-  --titleColor:     #030303;
-  --borderColor:    #e7e1d4;
-  --shadeColor:     #f6f4ee;
-  --navyColor:      #051435;
-  --navyDark:       #06101f;
-  --skyColor:       #fdc72f;
+  --primaryColor:   #a4112f;
+  --primaryDark:    #7c0a20;
+  --primaryLight:   #c62a4c;
+  --secondaryColor: #10141c;
+  --bodyColor:      #4a5160;
+  --titleColor:     #10141c;
+  --borderColor:    #e5e8ef;
+  --shadeColor:     #f6f7fb;
+  --navyColor:      #0a1836;
+  --navyDark:       #060f24;
+  --skyColor:       #f6c445;
   --whiteColor:     #ffffff;
-  --font-body:      'Inter', sans-serif;
-  --font-heading:   'Bitter', serif;
+  --font-body:      'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading:   'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* ============================================================

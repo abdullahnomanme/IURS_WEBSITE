@@ -7,7 +7,7 @@
 <meta content="Apply for membership of the Islamic University Research Society." name="description"/>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700;8..60,800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 <link href="assets/iurs-site.css" rel="stylesheet"/>
 <link href="assets/iurs-polish.css" rel="stylesheet"/>
@@ -39,7 +39,47 @@
 .iu-why-item i{font-size:22px;color:var(--primaryColor);margin-bottom:10px;display:block}
 .iu-why-item b{display:block;font-family:var(--font-heading);font-size:16px;font-weight:800;color:var(--titleColor);margin-bottom:6px}
 .iu-why-item span{font-size:13px;color:var(--bodyColor);line-height:1.7}
-@media(max-width:700px){.iu-fgrid{grid-template-columns:1fr}.iu-form{padding:22px}}
+/* Recruitment window banner */
+.iu-window{border:1px solid var(--borderColor);border-left:4px solid var(--bodyColor);border-radius:14px;padding:16px 20px;margin:0 0 18px;background:var(--shadeColor)}
+.iu-window.open{border-left-color:#15703f;background:#f2f9f4;border-color:#cfe8d7}
+.iu-window.shut{border-left-color:var(--primaryColor);background:#fdf4f5;border-color:#f0d8dc}
+.iu-window-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:var(--font-heading);font-size:14.5px;font-weight:700;color:var(--titleColor)}
+.iu-window-dot{width:9px;height:9px;border-radius:50%;background:var(--bodyColor);flex:none}
+.iu-window.open .iu-window-dot{background:#15703f;box-shadow:0 0 0 4px rgba(21,112,63,.16)}
+.iu-window.shut .iu-window-dot{background:var(--primaryColor)}
+.iu-window-dates{margin-left:auto;font:600 12px var(--font-body);color:var(--bodyColor)}
+.iu-window p{margin:8px 0 0;font-size:13.5px;line-height:1.75;color:var(--bodyColor)}
+/* Fee card */
+.iu-fee{display:flex;gap:20px;align-items:flex-start;border:1px solid var(--borderColor);border-radius:14px;padding:20px;margin:0 0 22px;background:#fff}
+.iu-fee-amount{flex:none;min-width:96px;text-align:center;background:var(--primaryColor);color:#fff;border-radius:12px;padding:14px 10px;font-family:var(--font-heading);font-size:26px;font-weight:800;line-height:1.1}
+.iu-fee-amount small{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;opacity:.85;margin-top:3px}
+.iu-fee-body{min-width:0}
+.iu-fee-body b{font-family:var(--font-heading);font-size:15.5px;color:var(--titleColor)}
+.iu-fee-body p{margin:5px 0 12px;font-size:13.5px;line-height:1.7;color:var(--bodyColor)}
+.iu-fee-pay{display:flex;gap:10px 18px;flex-wrap:wrap;align-items:center}
+.iu-fee-to{font-size:13.5px;color:var(--titleColor);display:inline-flex;align-items:center;gap:7px;flex-wrap:wrap}
+.iu-fee-to i{color:var(--primaryColor)}
+.iu-fee-to b{font-size:14.5px;letter-spacing:.01em}
+.iu-fee-to em{font-style:normal;font-size:12px;color:var(--bodyColor)}
+.iu-copy{border:1px solid var(--borderColor);background:var(--shadeColor);color:var(--titleColor);border-radius:7px;padding:4px 10px;font:700 11.5px var(--font-body);cursor:pointer;transition:.2s}
+.iu-copy:hover{background:var(--primaryColor);border-color:var(--primaryColor);color:#fff}
+.iu-fee-methods{display:flex;gap:6px;flex-wrap:wrap}
+.iu-fee-methods span{background:var(--shadeColor);border:1px solid var(--borderColor);border-radius:999px;padding:4px 11px;font:600 11.5px var(--font-body);color:var(--bodyColor)}
+/* Payment fieldset */
+.iu-pay{border:1px dashed var(--borderColor);border-radius:14px;padding:20px;margin:24px 0 0;background:var(--shadeColor)}
+.iu-pay legend{font-family:var(--font-heading);font-size:14px;font-weight:800;color:var(--titleColor);padding:0 8px;background:#fff;border:1px solid var(--borderColor);border-radius:7px}
+.iu-pay-hint{margin:0 0 16px;font-size:12.5px;line-height:1.7;color:var(--bodyColor)}
+/* Closed state */
+.iu-closed{background:#fff;border:1px solid var(--borderColor);border-radius:16px;padding:44px 30px;text-align:center}
+.iu-closed>i{font-size:30px;color:var(--primaryColor);background:var(--shadeColor);width:70px;height:70px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:18px}
+.iu-closed h3{font-family:var(--font-heading);font-size:23px;font-weight:800;color:var(--titleColor);margin:0 0 10px}
+.iu-closed p{font-size:14.5px;color:var(--bodyColor);line-height:1.8;margin:0 auto 22px;max-width:540px}
+.iu-closed-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.iu-closed-btn{background:var(--primaryColor);color:#fff;border-radius:9px;padding:12px 22px;font:700 13.5px var(--font-body);text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:.2s}
+.iu-closed-btn:hover{background:var(--primaryDark);color:#fff}
+.iu-closed-btn.ghost{background:transparent;color:var(--titleColor);border:1px solid var(--borderColor)}
+.iu-closed-btn.ghost:hover{background:var(--shadeColor);color:var(--titleColor)}
+@media(max-width:700px){.iu-fgrid{grid-template-columns:1fr}.iu-form{padding:22px}.iu-fee{flex-direction:column;gap:14px}.iu-fee-amount{min-width:0;width:100%}.iu-window-dates{margin-left:0;width:100%}}
 </style>
 <link rel="canonical" data-abs="/join.html" href="/join.html">
 <meta property="og:type" content="website">
@@ -56,7 +96,7 @@
 <div class="preloader-inner">
 <div class="preloader-logo"><img decoding="async" width="512" height="512" alt="IURS" src="assets/logo-iurs.webp"/></div>
 <div class="preloader-bar"></div>
-<div style="font-size:12px;color:#aaa;font-family:'Inter',sans-serif;">IURS Loading...</div>
+<div style="font-size:12px;color:#aaa;font-family:'Poppins','Inter',system-ui,sans-serif;">IURS Loading...</div>
 </div>
 </div>
 <!-- TOPBAR -->
@@ -70,9 +110,9 @@
 <span style="display:flex;align-items:center;gap:6px;font-size:12.5px;"><i class="fas fa-map-marker-alt" style="color:var(--primaryColor);"></i> TSCC, Islamic University, Kushtia-7003</span>
 </div>
 <div class="topbar-right">
-<a href="https://facebook.com/iu.researchsociety" target="_blank" title="Facebook"><i class="fab fa-facebook-f"></i></a>
-<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-<a href="#" title="YouTube"><i class="fab fa-youtube"></i></a>
+<div class="topbar-divider"></div>
+<a class="topbar-login" href="login.html" title="Executive and member sign-in"><i class="fas fa-lock"></i> Login</a>
+<a href="https://www.facebook.com/iuresearchsociety/" target="_blank" title="Facebook"><i class="fab fa-facebook-f"></i></a>
 <div class="topbar-divider"></div>
 <a class="apply-btn-top" href="https://iurs.org" target="_blank"><i class="fas fa-globe"></i> iurs.org</a>
 </div>
@@ -92,7 +132,7 @@
 <li><a href="index.html">Home</a></li><li><a href="events.html">Post &amp; Events <i class="fas fa-chevron-down"></i></a><ul class="dropdown"><li><a href="events.html#upcoming">Upcoming Events</a></li><li><a href="events.html#past">Past Events</a></li><li><a href="index.html">Notices</a></li><li><a href="blog.html">News &amp; Blog</a></li></ul></li><li><a href="executive-committee.html">People <i class="fas fa-chevron-down"></i></a><ul class="dropdown"><li><a href="executive-committee.html">Executive Committee</a></li><li><a href="executive-committee.html">General Members</a></li><li><a href="executive-committee.html">Advisors</a></li><li><a href="alumni.html">Alumni</a></li></ul></li><li><a href="training-session.html">Training Session</a></li><li><a href="publications.html">Publication</a></li><li><a href="gallery.html">Gallery</a></li><li><a href="about.html">About Us</a></li>
 </ul>
 <div class="nav-cta">
-<a class="btn-login" href="login.html" style="margin-right:8px;">Login</a><a class="btn-apply" href="join.html">Join IURS</a>
+<a class="btn-apply" href="join.html">Join IURS</a>
 </div>
 <div class="hamburger" id="hamburger" onclick="toggleMobile()">
 <span></span><span></span><span></span>
@@ -130,10 +170,30 @@
 </div>
 
 <div class="inner-sec-header" style="max-width:none;text-align:left;margin-bottom:26px;">
-<div class="sec-label-inline">Membership Application</div>
-<h2 class="iu-subhead" style="font-size:30px;">Apply to Join IURS</h2>
+<div class="sec-label-inline" id="j-window-label">Membership Application</div>
+<h2 class="iu-subhead" style="font-size:30px;" id="j-window-title">Apply to Join IURS</h2>
 <p class="iu-note" style="margin:0;">Open to students of Islamic University, Kushtia. Fill in the form below and the
 executive committee will review your application and reply by email. Fields marked <span style="color:var(--primaryColor);">*</span> are required.</p>
+</div>
+
+<!-- Recruitment window. Filled in from /api/public/recruitment; starts hidden so a
+     visitor never sees a wrong state while the request is still in flight. -->
+<div class="iu-window" id="j-window" hidden>
+<div class="iu-window-head"><span class="iu-window-dot" id="j-window-dot"></span><b id="j-window-state">Checking…</b><span class="iu-window-dates" id="j-window-dates"></span></div>
+<p id="j-window-msg"></p>
+</div>
+
+<div class="iu-fee" id="j-fee" hidden>
+<div class="iu-fee-amount"><span id="j-fee-value">—</span><small id="j-fee-currency">BDT</small></div>
+<div class="iu-fee-body">
+<b>Membership fee</b>
+<p id="j-fee-note">Pay the fee first, then enter the transaction ID from your receipt below.</p>
+<div class="iu-fee-pay">
+<span class="iu-fee-to"><i class="fas fa-mobile-screen-button"></i> Pay to <b id="j-fee-payto">—</b> <em id="j-fee-paytolabel"></em>
+<button class="iu-copy" id="j-fee-copy" type="button" title="Copy the number">Copy</button></span>
+<span class="iu-fee-methods" id="j-fee-methods"></span>
+</div>
+</div>
 </div>
 
 <form class="iu-form" id="join-form" novalidate>
@@ -141,15 +201,31 @@ executive committee will review your application and reply by email. Fields mark
 <div class="iu-f"><label for="j-name">Full name <span class="req">*</span></label><input autocomplete="name" id="j-name" maxlength="160" name="name" required type="text"/></div>
 <div class="iu-f"><label for="j-id">Student / IURS ID</label><input id="j-id" maxlength="80" name="studentId" type="text"/></div>
 <div class="iu-f"><label for="j-dept">Department <span class="req">*</span></label><input id="j-dept" maxlength="200" name="department" required type="text"/></div>
-<div class="iu-f"><label for="j-session">Academic year / session</label><input id="j-session" maxlength="80" name="academicSession" placeholder="e.g. 2022-2023, 3rd year" type="text"/></div>
+<div class="iu-f"><label for="j-session">Academic session <span class="req">*</span></label><input id="j-session" maxlength="80" name="academicSession" placeholder="e.g. 2022-2023" required type="text"/></div>
+<div class="iu-f"><label for="j-year">Year of study</label><select id="j-year" name="yearLevel"><option value="">Select…</option><option>1st year</option><option>2nd year</option><option>3rd year</option><option>4th year</option><option>Masters</option><option>MPhil / PhD</option><option>Alumnus</option></select></div>
 <div class="iu-f"><label for="j-email">Email <span class="req">*</span></label><input autocomplete="email" id="j-email" maxlength="200" name="email" required type="email"/></div>
-<div class="iu-f"><label for="j-phone">Phone</label><input autocomplete="tel" id="j-phone" maxlength="60" name="phone" type="tel"/></div>
+<div class="iu-f"><label for="j-phone">Phone</label><input autocomplete="tel" id="j-phone" maxlength="60" name="phone" placeholder="01XXXXXXXXX" type="tel"/></div>
 <div class="iu-f full"><label for="j-interests">Research interests</label><textarea id="j-interests" maxlength="2000" name="researchInterests" placeholder="Which subjects or questions would you like to work on?"></textarea></div>
 <div class="iu-f full"><label for="j-skills">Skills and interests</label><textarea id="j-skills" maxlength="2000" name="skills" placeholder="Statistics, survey design, writing, design, languages, programming…"></textarea></div>
 <div class="iu-f full"><label for="j-exp">Previous research experience</label><textarea id="j-exp" maxlength="4000" name="experience" placeholder="Any earlier research, coursework projects, papers or fieldwork. Write “none” if this would be your first."></textarea></div>
 <div class="iu-f full"><label for="j-why">Why do you want to join IURS? <span class="req">*</span></label><textarea id="j-why" maxlength="4000" name="motivation" required></textarea></div>
-<div class="iu-hp"><label for="j-website">Website</label><input autocomplete="off" id="j-website" name="website" tabindex="-1" type="text"/></div>
 </div>
+
+<!-- Payment block. Shown only when the society is charging a fee for this intake. -->
+<fieldset class="iu-pay" id="j-pay" hidden>
+<legend>Payment details</legend>
+<p class="iu-pay-hint">Enter these exactly as they appear on your payment receipt. Your application stays pending
+until the treasurer matches the transaction ID against the society record.</p>
+<div class="iu-fgrid">
+<div class="iu-f"><label for="j-method">Paid via <span class="req">*</span></label><select id="j-method" name="paymentMethod"><option value="">Select…</option></select></div>
+<div class="iu-f"><label for="j-txn">Transaction ID <span class="req">*</span></label><input autocapitalize="characters" autocomplete="off" id="j-txn" maxlength="80" name="transactionId" placeholder="e.g. BKH8823001XZ" spellcheck="false" type="text"/></div>
+<div class="iu-f"><label for="j-amount">Amount paid</label><input id="j-amount" inputmode="numeric" maxlength="20" name="paymentAmount" type="text"/></div>
+<div class="iu-f"><label for="j-sender">Number you paid from</label><input id="j-sender" maxlength="60" name="paymentSender" placeholder="01XXXXXXXXX" type="tel"/></div>
+<div class="iu-f"><label for="j-paydate">Date of payment</label><input id="j-paydate" name="paymentDate" type="date"/></div>
+</div>
+</fieldset>
+
+<div class="iu-hp"><label for="j-website">Website</label><input autocomplete="off" id="j-website" name="website" tabindex="-1" type="text"/></div>
 <div class="iu-form-foot">
 <button class="iu-submit" id="j-submit" type="submit">Submit Application</button>
 <span class="iu-msg" id="j-msg" role="status"></span>
@@ -157,6 +233,17 @@ executive committee will review your application and reply by email. Fields mark
 <p style="font-size:12.5px;color:var(--bodyColor);margin:18px 0 0;line-height:1.7;">Your application is sent only to the IURS
 executive committee. It is not published anywhere on this website.</p>
 </form>
+
+<!-- Shown instead of the form when recruitment is closed. -->
+<div class="iu-closed" id="j-closed" hidden>
+<i class="fas fa-lock"></i>
+<h3>Applications are closed right now</h3>
+<p id="j-closed-msg"></p>
+<div class="iu-closed-actions">
+<a class="iu-closed-btn" href="https://www.facebook.com/iuresearchsociety/" rel="noopener" target="_blank"><i class="fab fa-facebook-f"></i> Follow for the next call</a>
+<a class="iu-closed-btn ghost" href="events.html">See our events</a>
+</div>
+</div>
 
 <div class="iu-done" hidden id="join-done">
 <i class="fas fa-circle-check"></i>
@@ -180,11 +267,7 @@ contact you by email.</p>
 </div>
 <p>A premier academic research organization at Islamic University, Kushtia, dedicated to advancing knowledge, fostering innovation, and nurturing the next generation of researchers and leaders.</p>
 <div class="footer-socials">
-<a href="#" title="Facebook"><i class="fab fa-facebook-f"></i></a>
-<a href="#" title="Twitter"><i class="fab fa-twitter"></i></a>
-<a href="#" title="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
-<a href="#" title="YouTube"><i class="fab fa-youtube"></i></a>
-<a href="#" title="Instagram"><i class="fab fa-instagram"></i></a>
+<a href="https://www.facebook.com/iuresearchsociety/" target="_blank" rel="noopener" title="Facebook"><i class="fab fa-facebook-f"></i></a>
 </div>
 </div>
 <div class="footer-col">
@@ -225,7 +308,7 @@ contact you by email.</p>
 <p style="font-size:13px;color:rgba(255,255,255,.45);margin-bottom:10px;">Subscribe to our newsletter</p>
 <div style="display:flex;gap:0;border-radius:8px;overflow:hidden;">
 <input id="newsletter-email" placeholder="Your email..." style="flex:1;padding:10px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-right:none;color:#fff;font-size:13px;font-family:var(--font-body);" type="email"/>
-<button onclick="subscribeNewsletter()" onmouseout="this.style.background='var(--primaryColor)'" onmouseover="this.style.background='#730017'" style="background:var(--primaryColor);color:#fff;border:none;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;transition:.2s;" type="button">
+<button onclick="subscribeNewsletter()" onmouseout="this.style.background='var(--primaryColor)'" onmouseover="this.style.background='#7c0a20'" style="background:var(--primaryColor);color:#fff;border:none;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;transition:.2s;" type="button">
 <i class="fas fa-paper-plane"></i>
 </button>
 </div>

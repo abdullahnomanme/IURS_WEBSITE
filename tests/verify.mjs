@@ -528,18 +528,73 @@ const dupId = db.prepare('SELECT id FROM blog_posts WHERE slug=?').all(dupSlug)[
 r = await hit('/api/admin/blog/' + dupId, { method: 'DELETE' });
 check('an article can be deleted', r.status === 200 && db.prepare('SELECT COUNT(*) c FROM blog_posts WHERE id=?').all(dupId)[0].c === 0);
 
-section('18. Join IURS: anyone may apply, nobody may read');
+section('18. Join IURS: only while recruitment is open, and only after the fee is matched');
 const APPLY = { name: 'Applicant One', studentId: 'IU-2022-501', department: 'Statistics', academicSession: '2022-2023',
-                email: 'applicant.one@example.com', phone: '01700000000', researchInterests: 'Survey methodology',
-                skills: 'R, SPSS', experience: 'None yet.', motivation: 'I would like to learn how research is done properly.' };
+                yearLevel: '3rd year', email: 'applicant.one@example.com', phone: '01700000000',
+                researchInterests: 'Survey methodology', skills: 'R, SPSS', experience: 'None yet.',
+                motivation: 'I would like to learn how research is done properly.',
+                paymentMethod: 'bKash', transactionId: 'BKH8823001XZ', paymentAmount: '150',
+                paymentSender: '01700000000', paymentDate: '2026-08-20' };
+
+// The window starts closed, so nothing can be submitted until the admin opens it.
+cookie = '';
+r = await hit('/api/public/recruitment', { cookie: false });
+check('the public can ask whether recruitment is open', r.status === 200 && r.body.open === false, JSON.stringify(r.body).slice(0, 120));
+check('a closed window still explains itself to the visitor', typeof r.body.message === 'string' && r.body.message.length > 20);
+check('a closed window shows the closed wording, not the open wording', /closed/i.test(r.body.message), r.body.message);
+r = await hit('/api/public/join', { method: 'POST', json: APPLY, cookie: false });
+check('nobody can apply while recruitment is closed', r.status === 403 && r.body.code === 'recruitment_closed', 'got ' + r.status);
+check('and nothing was stored', db.prepare("SELECT COUNT(*) c FROM applications WHERE email='applicant.one@example.com'").all()[0].c === 0);
+
+cookie = adminCookie;
+r = await hit('/api/admin/recruitment');
+check('the admin panel can read the recruitment settings', r.status === 200 && r.body.settings && r.body.liveNow === false, JSON.stringify(r.body).slice(0, 120));
+r = await hit('/api/admin/recruitment', { method: 'PUT', json: { open: true, requirePayment: true, fee: '150', currency: 'BDT',
+  methods: 'bKash,Nagad', payTo: '+880 1749-022577', payToLabel: 'bKash Personal', title: 'Member Recruitment 4.2',
+  openMessage: 'Recruitment is open until the end of the month.', closedMessage: 'Recruitment is closed for now.' } });
+check('the admin can open recruitment', r.status === 200 && r.body.liveNow === true, JSON.stringify(r.body).slice(0, 160));
+r = await hit('/api/admin/recruitment', { method: 'PUT', json: { open: true, opensOn: '2026-03-01', closesOn: '2026-02-01' } });
+check('a closing date before the opening date is refused', r.status === 400, 'got ' + r.status);
+r = await hit('/api/admin/recruitment', { method: 'PUT', json: { open: true, requirePayment: true, fee: '' } });
+check('asking for a fee without naming one is refused', r.status === 400, 'got ' + r.status);
+// Restore a good open window for the rest of the section.
+await hit('/api/admin/recruitment', { method: 'PUT', json: { open: true, requirePayment: true, fee: '150',
+  methods: 'bKash,Nagad', payTo: '+880 1749-022577' } });
+r = await hit('/api/public/recruitment', { cookie: false });
+check('an open window tells the visitor the fee and where to pay it',
+  r.body.open === true && r.body.fee === '150' && r.body.payTo === '+880 1749-022577' && r.body.methods.includes('bKash'), JSON.stringify(r.body));
+
+// A window whose dates have passed is closed even though the switch is left on.
+r = await hit('/api/admin/recruitment', { method: 'PUT', json: { open: true, requirePayment: false, closesOn: '2020-01-01' } });
+check('a window that has already closed by date reads as closed', r.body.liveNow === false, JSON.stringify(r.body).slice(0, 120));
+r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'toolate@example.com' }, cookie: false });
+check('and the form is refused after the closing date even with the switch on', r.status === 403, 'got ' + r.status);
+r = await hit('/api/admin/recruitment', { method: 'PUT', json: { open: true, requirePayment: false, opensOn: '2999-01-01' } });
+check('a window that has not started yet reads as closed', r.body.liveNow === false, JSON.stringify(r.body).slice(0, 120));
+r = await hit('/api/admin/recruitment', { method: 'PUT', json: { open: true, requirePayment: false } });
+check('a window with the switch on and no dates reads as open', r.body.liveNow === true, JSON.stringify(r.body).slice(0, 120));
+
+// Restore the fee-required open window that the rest of the section expects.
+r = await hit('/api/admin/recruitment', { method: 'PUT', json: { open: true, requirePayment: true, fee: '150',
+  methods: 'bKash,Nagad', payTo: '+880 1749-022577' } });
+check('the settings survive a round trip through the database', r.body.settings.fee === '150' && r.body.settings.open === true, JSON.stringify(r.body.settings));
+
+cookie = '';
 r = await hit('/api/public/join', { method: 'POST', json: APPLY, cookie: false });
 check('a visitor can submit an application without logging in', r.status === 200 && r.body.ok === true, JSON.stringify(r.body));
 check('the application is stored in the database',
   db.prepare("SELECT COUNT(*) c FROM applications WHERE email='applicant.one@example.com'").all()[0].c === 1);
 check('a new application starts as Pending',
   db.prepare("SELECT status s FROM applications WHERE email='applicant.one@example.com'").all()[0].s === 'pending');
+check('a new application starts with its payment unverified',
+  db.prepare("SELECT payment_status p FROM applications WHERE email='applicant.one@example.com'").all()[0].p === 'unverified');
 check('every answer on the form is saved, not just the name',
   db.prepare("SELECT skills k FROM applications WHERE email='applicant.one@example.com'").all()[0].k === 'R, SPSS');
+check('the transaction ID is saved exactly as typed',
+  db.prepare("SELECT transaction_id t FROM applications WHERE email='applicant.one@example.com'").all()[0].t === 'BKH8823001XZ');
+check('the year of study is saved',
+  db.prepare("SELECT year_level y FROM applications WHERE email='applicant.one@example.com'").all()[0].y === '3rd year');
+check('the applicant is told the application waits for the payment check', /transaction ID/i.test(r.body.message || ''), r.body.message);
 
 r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'a@b.co', name: '' }, cookie: false });
 check('an application with no name is refused', r.status === 400, 'got ' + r.status);
@@ -547,24 +602,36 @@ r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'no
 check('an application with a broken email address is refused', r.status === 400, 'got ' + r.status);
 r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'x@y.co', department: '' }, cookie: false });
 check('an application with no department is refused', r.status === 400, 'got ' + r.status);
+r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'x@y.co', academicSession: '' }, cookie: false });
+check('an application with no academic session is refused', r.status === 400, 'got ' + r.status);
 r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'x@y.co', motivation: '' }, cookie: false });
 check('an application with no reason for joining is refused', r.status === 400, 'got ' + r.status);
 
+// Payment details are only optional when the society says the fee is not required.
+r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'nopay@example.com', transactionId: '' }, cookie: false });
+check('an application with no transaction ID is refused while a fee is required', r.status === 400, 'got ' + r.status);
+r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'shorttxn@example.com', transactionId: 'ABC' }, cookie: false });
+check('a transaction ID that is obviously too short is refused', r.status === 400, 'got ' + r.status);
+r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'badmethod@example.com', paymentMethod: 'Cash in an envelope' }, cookie: false });
+check('a payment method the society does not use is refused', r.status === 400, 'got ' + r.status);
+r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'reuse@example.com' }, cookie: false });
+check('the same transaction ID cannot be reused by a second applicant', r.status === 409, 'got ' + r.status);
+
 // Spam control 1: a hidden field that only automated scripts fill in.
 const beforeSpam = db.prepare('SELECT COUNT(*) c FROM applications').all()[0].c;
-r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'spam@example.com', website: 'http://spam.example' }, cookie: false });
+r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'spam@example.com', transactionId: 'SPAM99001', website: 'http://spam.example' }, cookie: false });
 check('a spam bot gets a normal-looking reply', r.status === 200, 'got ' + r.status);
 check('but nothing from the spam bot is stored',
   db.prepare('SELECT COUNT(*) c FROM applications').all()[0].c === beforeSpam);
 
 // Spam control 2: the same person cannot submit twice in a week.
-r = await hit('/api/public/join', { method: 'POST', json: APPLY, cookie: false });
+r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, transactionId: 'BKH8823002XZ' }, cookie: false });
 check('the same email cannot apply twice in a week', r.status === 409, 'got ' + r.status);
 
 // Spam control 3: a per-connection daily limit.
 let limited = 0;
 for (let i = 0; i < 6; i++) {
-  r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'burst' + i + '@example.com' }, cookie: false });
+  r = await hit('/api/public/join', { method: 'POST', json: { ...APPLY, email: 'burst' + i + '@example.com', transactionId: 'BURST00' + i + 'AA' }, cookie: false });
   if (r.status === 429) limited++;
 }
 check('a flood of applications from one connection is rate limited', limited > 0, 'none were limited');
@@ -574,7 +641,7 @@ check('another website cannot post applications into the form', r.status === 403
 
 // Applications must NOT be publicly accessible.
 cookie = '';
-for (const pth of ['/api/admin/applications', '/api/public/applications']) {
+for (const pth of ['/api/admin/applications', '/api/public/applications', '/api/admin/applications/export.xlsx']) {
   r = await hit(pth, { cookie: false });
   check('applications are not readable at ' + pth + ' without logging in', r.status === 401 || r.status === 403 || r.status === 404, 'got ' + r.status);
 }
@@ -588,21 +655,85 @@ cookie = adminCookie;
 r = await hit('/api/admin/applications');
 check('the executive team CAN read the applications', r.status === 200 && Array.isArray(r.body.applications), JSON.stringify(r.body).slice(0, 120));
 check('the dashboard gets a count per status', r.body.counts && typeof r.body.counts === 'object', JSON.stringify(r.body.counts));
+check('the dashboard gets a count per payment state', r.body.paymentCounts && typeof r.body.paymentCounts === 'object', JSON.stringify(r.body.paymentCounts));
 check('the four triage statuses are offered',
   ['pending', 'contacted', 'approved', 'rejected'].every(s => (r.body.statuses || []).includes(s)), JSON.stringify(r.body.statuses));
 const appId = db.prepare("SELECT id FROM applications WHERE email='applicant.one@example.com'").all()[0].id;
 r = await hit('/api/admin/applications?q=Statistics');
 check('applications can be searched', r.body.applications.some(a => a.id === appId), 'found ' + r.body.applications.length);
+r = await hit('/api/admin/applications?q=BKH8823001XZ');
+check('an application can be found by its transaction ID', r.body.applications.some(a => a.id === appId), 'found ' + r.body.applications.length);
 r = await hit('/api/admin/applications?q=zzz-nothing-matches-zzz');
 check('a search with no matches returns an empty list, not an error', r.status === 200 && r.body.applications.length === 0);
+
+// The rule the society asked for: no acceptance before the money is matched.
+r = await hit('/api/admin/applications/' + appId, { method: 'PUT', json: { status: 'approved' } });
+check('an application cannot be approved while its payment is unverified', r.status === 409 && r.body.code === 'payment_unverified', 'got ' + r.status);
+check('and the application really is still pending', db.prepare('SELECT status s FROM applications WHERE id=?').all(appId)[0].s === 'pending');
 r = await hit('/api/admin/applications/' + appId, { method: 'PUT', json: { status: 'contacted', notes: 'Phoned on 21 August.' } });
-check('an application can be marked Contacted', r.status === 200, JSON.stringify(r.body));
+check('an application can still be marked Contacted before the payment check', r.status === 200, JSON.stringify(r.body));
 check('the status change is stored', db.prepare('SELECT status s FROM applications WHERE id=?').all(appId)[0].s === 'contacted');
 check('the private note is stored', /Phoned/.test(db.prepare('SELECT admin_notes n FROM applications WHERE id=?').all(appId)[0].n || ''));
 r = await hit('/api/admin/applications?status=contacted');
 check('applications can be filtered by status', r.body.applications.length >= 1 && r.body.applications.every(a => a.status === 'contacted'));
 r = await hit('/api/admin/applications/' + appId, { method: 'PUT', json: { status: 'not-a-status' } });
 check('an invalid status is refused', r.status === 400, 'got ' + r.status);
+
+r = await hit('/api/admin/applications/' + appId + '/payment', { method: 'PUT', json: { paymentStatus: 'nonsense' } });
+check('an invalid payment state is refused', r.status === 400, 'got ' + r.status);
+r = await hit('/api/admin/applications/' + appId + '/payment', { method: 'PUT', json: { paymentStatus: 'verified', paymentNote: 'Matched in bKash statement, 20 Aug.' } });
+check('the treasurer can mark a payment verified', r.status === 200, JSON.stringify(r.body));
+const paid = db.prepare('SELECT payment_status p, verified_at v, verified_by b, payment_note n FROM applications WHERE id=?').all(appId)[0];
+check('the payment state is stored', paid.p === 'verified');
+check('who verified it and when is recorded', !!paid.v && !!paid.b, JSON.stringify(paid));
+check('the payment note is stored', /bKash statement/.test(paid.n || ''));
+r = await hit('/api/admin/applications?payment=verified');
+check('applications can be filtered by payment state', r.body.applications.some(a => a.id === appId));
+r = await hit('/api/admin/applications/' + appId, { method: 'PUT', json: { status: 'approved' } });
+check('once the payment is verified the application can be approved', r.status === 200, JSON.stringify(r.body));
+check('the approval is stored', db.prepare('SELECT status s FROM applications WHERE id=?').all(appId)[0].s === 'approved');
+r = await hit('/api/admin/applications/' + appId + '/payment', { method: 'PUT', json: { paymentStatus: 'rejected', paymentNote: 'No such transaction.' } });
+check('a payment can be marked rejected if it does not match', r.status === 200
+  && db.prepare('SELECT verified_at v FROM applications WHERE id=?').all(appId)[0].v === null, JSON.stringify(r.body));
+r = await hit('/api/admin/applications/999999/payment', { method: 'PUT', json: { paymentStatus: 'verified' } });
+check('verifying a payment on an application that does not exist is a clean 404', r.status === 404, 'got ' + r.status);
+
+section('18b. The applicant list downloads as a real Excel file');
+r = await hit('/api/admin/applications/export.xlsx');
+check('the export answers 200', r.status === 200, 'got ' + r.status);
+check('the export is served as an .xlsx spreadsheet',
+  (r.res.headers.get('content-type') || '').includes('spreadsheetml.sheet'), r.res.headers.get('content-type'));
+check('the export is sent as a download with a dated filename',
+  /attachment; filename="IURS-applications-\d{4}-\d{2}-\d{2}[^"]*\.xlsx"/.test(r.res.headers.get('content-disposition') || ''),
+  r.res.headers.get('content-disposition'));
+const xlsxBytes = new Uint8Array(await r.res.clone().arrayBuffer());
+check('the file really is a ZIP container, as .xlsx must be',
+  xlsxBytes[0] === 0x50 && xlsxBytes[1] === 0x4B && xlsxBytes[2] === 0x03 && xlsxBytes[3] === 0x04,
+  [...xlsxBytes.slice(0, 4)].join(','));
+check('the file ends with the ZIP central-directory record Excel looks for',
+  (() => { for (let i = xlsxBytes.length - 22; i >= 0; i--)
+      if (xlsxBytes[i] === 0x50 && xlsxBytes[i + 1] === 0x4B && xlsxBytes[i + 2] === 0x05 && xlsxBytes[i + 3] === 0x06) return true;
+    return false; })());
+const xlsxText = new TextDecoder().decode(xlsxBytes);
+check('the workbook declares the parts Excel needs', xlsxText.includes('xl/workbook.xml') && xlsxText.includes('xl/worksheets/sheet1.xml') && xlsxText.includes('xl/styles.xml'));
+check('the applicant appears in the sheet', xlsxText.includes('Applicant One'), 'name missing from sheet XML');
+check('the transaction ID is written as text so no leading zero is lost',
+  /t="inlineStr"[^>]*><is><t[^>]*>BKH8823001XZ</.test(xlsxText));
+check('the header row names the payment columns', xlsxText.includes('Transaction ID') && xlsxText.includes('Payment'));
+r = await hit('/api/admin/applications/export.xlsx?payment=verified');
+check('the export honours the payment filter that is on screen',
+  r.status === 200 && !new TextDecoder().decode(await r.res.clone().arrayBuffer()).includes('Applicant One'),
+  'a rejected-payment applicant leaked into a verified-only export');
+r = await hit('/api/admin/applications/export.csv');
+check('a CSV export is available too', r.status === 200 && (r.res.headers.get('content-type') || '').includes('text/csv'), r.res.headers.get('content-type'));
+const csvBytes = new Uint8Array(await r.res.clone().arrayBuffer());
+// Checked on the raw bytes: Response.text() strips a leading BOM, so decoding
+// first would hide the very thing we need to be sure reached the file.
+check('the CSV starts with a UTF-8 byte order mark so Excel reads Bangla names correctly',
+  csvBytes[0] === 0xEF && csvBytes[1] === 0xBB && csvBytes[2] === 0xBF, [...csvBytes.slice(0, 3)].join(','));
+const csvText = await r.res.clone().text();
+check('the CSV contains the applicant', csvText.includes('Applicant One'));
+
 
 section('19. The assistant answers only from IURS records');
 r = await hit('/api/public/chat', { method: 'POST', json: { message: 'What has IURS published?' }, cookie: false });
@@ -663,6 +794,60 @@ check('the health check still answers', r.status === 200 && r.body.ok === true);
 r = await worker.fetch(new Request(ORIGIN + '/api/public/committee'), { ...env, DB: { prepare() { throw new Error('D1 down'); }, batch() { throw new Error('D1 down'); } } }, {});
 check('a database failure on the new pages fails cleanly, without leaking details',
   r.status === 500 && !/D1 down/.test(JSON.stringify(await r.json())));
+
+
+/* ------------------------------------------------------------------
+   19. Upgrading a database that predates the new columns.
+   The live database already had an `applications` table without any of the
+   payment columns. CREATE TABLE IF NOT EXISTS is a no-op there, so a new index
+   over one of those columns ran before ALTER TABLE could add it, ensureSchema
+   rejected, and every single API call answered 500 — while this suite stayed
+   green because its database is always built fresh from the new CREATE TABLE.
+   This section reproduces the old shape on purpose.
+   ------------------------------------------------------------------ */
+{
+  const old = new DatabaseSync(':memory:');
+  // Exactly the table the production database had before the payment work.
+  old.exec(`CREATE TABLE applications (id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,
+    student_id TEXT,department TEXT,academic_session TEXT,email TEXT,phone TEXT,research_interests TEXT,
+    skills TEXT,experience TEXT,motivation TEXT,status TEXT NOT NULL DEFAULT 'pending',admin_notes TEXT,
+    source_key TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+  old.exec(`INSERT INTO applications(name,email,department,motivation) VALUES('Older Applicant','old@example.com','Statistics','Wrote in before the fee existed.')`);
+
+  const oldPrepare = sql => { let a = []; const api = {
+    bind(...x) { a = x; return api; },
+    async first() { return old.prepare(sql).all(...norm(a))[0] ?? null; },
+    async all() { return { results: old.prepare(sql).all(...norm(a)) }; },
+    async run() { old.prepare(sql).run(...norm(a)); return { success: true }; } }; return api; };
+  const oldEnv = { ...env, DB: { prepare: oldPrepare, async batch(l) { const o = []; for (const s of l) o.push(await s.run()); return o; } } };
+
+  // A fresh module instance: ensureSchema memoizes its promise per module, so the
+  // query string is what lets the schema run a second time against this database.
+  const fresh = (await import('./index.mjs?upgrade=1')).default;
+  const call = (p, o = {}) => fresh.fetch(new Request(ORIGIN + p, { headers: { Origin: ORIGIN }, ...o }), oldEnv, {});
+
+  let up = await call('/api/public/recruitment');
+  check('a database predating the payment columns still serves the public API',
+    up.status === 200, up.status + ' ' + (await up.clone().text()).slice(0, 160));
+  const upBody = await up.json();
+  check('and it reports the recruitment window rather than an error', upBody.open === false);
+
+  up = await call('/api/public/stats');
+  check('the stats endpoint survives the upgrade too', up.status === 200);
+
+  const cols = new Set(old.prepare('PRAGMA table_info(applications)').all().map(r => r.name));
+  for (const c of ['payment_method', 'transaction_id', 'payment_amount', 'payment_sender',
+                   'payment_date', 'payment_status', 'payment_note', 'verified_at', 'verified_by', 'year_level']) {
+    check('the upgrade adds applications.' + c, cols.has(c));
+  }
+  const idx = old.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_applications_txn'").all();
+  check('the transaction-id index is created after the column exists, not before', idx.length === 1);
+  const kept = old.prepare("SELECT name,payment_status FROM applications WHERE email='old@example.com'").all()[0];
+  check('the application that was already there is untouched', kept && kept.name === 'Older Applicant');
+  check('and it defaults to an unverified payment', kept && kept.payment_status === 'unverified',
+    JSON.stringify(kept));
+}
 
 console.log(`\n\x1b[1m${pass} passed, ${fail} failed\x1b[0m`);
 if (fail) { console.log('\nFailed:'); fails.forEach(f => console.log('  - ' + f)); }

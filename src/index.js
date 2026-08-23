@@ -5,6 +5,60 @@ const UPLOAD_TYPES = {'image/jpeg':'jpg','image/png':'png','image/webp':'webp','
 const GALLERY_CATEGORIES = ['Events','Community','Achievements','Training','Research','Campus','Documents'];
 const PUB_CATEGORIES = ['peer_reviewed','conference','working_paper','under_review'];
 const APPLICATION_STATUSES = ['pending','contacted','approved','rejected'];
+const PAYMENT_STATUSES = ['unverified','verified','rejected'];
+/* Labels for the public counters. The admin panel edits the numbers; the wording
+   lives here so a fresh database and an existing one always read the same. */
+const STAT_LABELS = {members:'Community Members',research_outputs:'Research Outputs',workshops:'Workshops & Training',peer_reviewed:'Peer-reviewed Articles',working_papers:'Working Papers',under_review:'Manuscripts Under Review',best_paper:'Best Paper Award'};
+const STAT_KEYS = Object.keys(STAT_LABELS);
+/* ---------------------------------------------------------------------------
+   Recruitment window. The Join IURS form is only usable while this is open, so
+   the society is not collecting applications (or membership fees) in a month
+   when nobody is reading them. Everything here is editable from the admin panel;
+   these values are only the starting point for a database that has never had the
+   settings saved. Dates are plain YYYY-MM-DD so they can be typed into a date
+   input, and are compared as strings, which is safe for that fixed format.
+   --------------------------------------------------------------------------- */
+const RECRUITMENT_DEFAULTS = {
+ open:false,
+ title:'Member Recruitment',
+ closedMessage:'Member recruitment is closed at the moment. Follow our Facebook page and this website — the next call for members will be announced here first.',
+ openMessage:'Recruitment is open. Please complete every field and pay the membership fee before submitting.',
+ opensOn:'',
+ closesOn:'',
+ fee:'150',
+ currency:'BDT',
+ feeNote:'One-time membership fee for the current session.',
+ methods:'bKash,Nagad,Rocket,Bank transfer',
+ payTo:'+880 1749-022577',
+ payToLabel:'bKash / Nagad (Personal)',
+ requirePayment:true
+};
+const RECRUITMENT_KEY='recruitment';
+async function getRecruitment(env){
+ try{
+  const row=await env.DB.prepare('SELECT value FROM site_settings WHERE key=?').bind(RECRUITMENT_KEY).first();
+  if(!row||!row.value)return {...RECRUITMENT_DEFAULTS};
+  const saved=JSON.parse(row.value);
+  return {...RECRUITMENT_DEFAULTS,...(saved&&typeof saved==='object'?saved:{})};
+ }catch(e){console.error('recruitment settings unreadable, using defaults',e);return {...RECRUITMENT_DEFAULTS}}
+}
+/* "Open" means the switch is on AND today is inside the window. An empty date is
+   deliberately treated as no bound rather than as a failed comparison, so the
+   admin can open recruitment without committing to an end date. */
+function recruitmentIsOpen(s,today){
+ if(!s.open)return false;
+ const d=today||new Date().toISOString().slice(0,10);
+ if(s.opensOn&&d<s.opensOn)return false;
+ if(s.closesOn&&d>s.closesOn)return false;
+ return true;
+}
+function publicRecruitment(s){
+ const open=recruitmentIsOpen(s);
+ return {open,title:s.title,message:open?s.openMessage:s.closedMessage,opensOn:s.opensOn||null,closesOn:s.closesOn||null,
+  fee:s.fee||'',currency:s.currency||'BDT',feeNote:s.feeNote||'',requirePayment:!!s.requirePayment,
+  methods:String(s.methods||'').split(',').map(x=>x.trim()).filter(Boolean),
+  payTo:s.payTo||'',payToLabel:s.payToLabel||''};
+}
 const json = (data,status=200,extra={}) => new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8',...extra}});
 const cookieOptions = maxAge => `Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
 /* Cloudflare Workers refuses a PBKDF2 iteration count above 100000: crypto.subtle
@@ -39,7 +93,9 @@ async function ensureSchema(env){
       `CREATE INDEX IF NOT EXISTS idx_publications_category_year ON publications(category,publication_year DESC)`,
       `CREATE INDEX IF NOT EXISTS idx_events_status_date ON events(status,event_date)`,
       `CREATE INDEX IF NOT EXISTS idx_notices_published_created ON notices(published,created_at DESC)`,
-      `INSERT OR IGNORE INTO site_stats(key,value,label) VALUES ('members','459+','Community Members'),('research_outputs','7','Research Outputs'),('workshops','6+','Workshops & Training'),('peer_reviewed','4','Peer-reviewed Articles'),('working_papers','10+','Working Papers'),('under_review','3+','Manuscripts Under Review')`,
+      `INSERT OR IGNORE INTO site_stats(key,value,label) VALUES ('members','459+','Community Members'),('research_outputs','7','Research Outputs'),('workshops','6+','Workshops & Training'),('peer_reviewed','4','Peer-reviewed Articles'),('working_papers','10+','Working Papers'),('under_review','3+','Manuscripts Under Review'),('best_paper','1','Best Paper Award')`,
+      // Single place for switches the admin can flip, e.g. whether recruitment is open.
+      `CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE TABLE IF NOT EXISTS login_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT,attempt_key TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE INDEX IF NOT EXISTS idx_login_attempts_key_time ON login_attempts(attempt_key,created_at)`,
       `CREATE TABLE IF NOT EXISTS gallery_images (id INTEGER PRIMARY KEY AUTOINCREMENT,seed_key TEXT UNIQUE,category TEXT NOT NULL DEFAULT 'Events',title TEXT NOT NULL,caption TEXT,image_url TEXT NOT NULL,fit TEXT NOT NULL DEFAULT 'cover',featured INTEGER NOT NULL DEFAULT 0,published INTEGER NOT NULL DEFAULT 1,sort_order INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -53,8 +109,15 @@ async function ensureSchema(env){
       `CREATE INDEX IF NOT EXISTS idx_alumni_standing ON alumni(published,standing,sort_order,id)`,
       `CREATE TABLE IF NOT EXISTS blog_posts (id INTEGER PRIMARY KEY AUTOINCREMENT,slug TEXT NOT NULL UNIQUE,title TEXT NOT NULL,author TEXT,category TEXT,excerpt TEXT,content TEXT,image_url TEXT,status TEXT NOT NULL DEFAULT 'draft',post_date TEXT,sort_order INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE INDEX IF NOT EXISTS idx_blog_status_date ON blog_posts(status,post_date DESC,id DESC)`,
-      `CREATE TABLE IF NOT EXISTS applications (id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,student_id TEXT,department TEXT,academic_session TEXT,email TEXT,phone TEXT,research_interests TEXT,skills TEXT,experience TEXT,motivation TEXT,status TEXT NOT NULL DEFAULT 'pending',admin_notes TEXT,source_key TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS applications (id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,student_id TEXT,department TEXT,academic_session TEXT,year_level TEXT,email TEXT,phone TEXT,research_interests TEXT,skills TEXT,experience TEXT,motivation TEXT,payment_method TEXT,transaction_id TEXT,payment_amount TEXT,payment_sender TEXT,payment_date TEXT,payment_status TEXT NOT NULL DEFAULT 'unverified',payment_note TEXT,verified_at TEXT,verified_by TEXT,status TEXT NOT NULL DEFAULT 'pending',admin_notes TEXT,source_key TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status,created_at DESC)`
+    ];
+    /* Indexes over columns that ALTER TABLE adds below. They cannot live in `ddl`:
+       on a database that predates the column, CREATE TABLE IF NOT EXISTS is a no-op,
+       so the index statement would run first and fail with "no such column" — which
+       rejects this whole promise and makes every API call return a 500. */
+    const lateIndexes=[
+      `CREATE INDEX IF NOT EXISTS idx_applications_txn ON applications(transaction_id)`
     ];
     const seeds=[
       `INSERT INTO events(title,event_date,event_time,venue,description,status,image_url) SELECT 'Orientation to Research Methodology','2026-05-03','9:30 AM','IIER Building, Room 101','Keynote by Professor Mohammed Asaduzzaman, PhD. Chair: Taqy Wasif. Host: Ashfia Kaniz Fatema.','past','assets/orientation-research-methodology.jpg' WHERE NOT EXISTS (SELECT 1 FROM events)`,
@@ -71,12 +134,18 @@ async function ensureSchema(env){
     // Added columns are deliberately nullable: SQLite refuses ALTER TABLE ADD
     // COLUMN for a NOT NULL column whose default is not a constant, and
     // updated_at is always written explicitly as datetime('now') anyway.
-    const columns={notices:[['image_url','TEXT'],['link_url','TEXT'],['updated_at','TEXT']],events:[['image_url','TEXT'],['link_url','TEXT'],['registration_url','TEXT'],['updated_at','TEXT']],publications:[['featured','INTEGER NOT NULL DEFAULT 0'],['updated_at','TEXT'],['seed_key','TEXT'],['type_label','TEXT'],['sort_order','INTEGER NOT NULL DEFAULT 0']],executives:[['facebook_url','TEXT']]};
+    const columns={notices:[['image_url','TEXT'],['link_url','TEXT'],['updated_at','TEXT']],events:[['image_url','TEXT'],['link_url','TEXT'],['registration_url','TEXT'],['updated_at','TEXT']],publications:[['featured','INTEGER NOT NULL DEFAULT 0'],['updated_at','TEXT'],['seed_key','TEXT'],['type_label','TEXT'],['sort_order','INTEGER NOT NULL DEFAULT 0']],executives:[['facebook_url','TEXT']],
+      /* Membership fee details. payment_status is kept separate from status so an
+         application cannot be approved by accident before the money is checked:
+         the admin has to match transaction_id against the receiving account and
+         mark it verified, and only then does approving become possible. */
+      applications:[['payment_method','TEXT'],['transaction_id','TEXT'],['payment_amount','TEXT'],['payment_sender','TEXT'],['payment_date','TEXT'],["payment_status","TEXT NOT NULL DEFAULT 'unverified'"],['payment_note','TEXT'],['verified_at','TEXT'],['verified_by','TEXT'],['year_level','TEXT']]};
     for(const [table,cols] of Object.entries(columns)){
       const info=await env.DB.prepare(`PRAGMA table_info(${table})`).all();const have=new Set((info.results||[]).map(x=>x.name));
       for(const [name,type] of cols) if(!have.has(name)) await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`).run();
       if(!have.has('updated_at')&&cols.some(c=>c[0]==='updated_at')) await env.DB.prepare(`UPDATE ${table} SET updated_at=created_at WHERE updated_at IS NULL`).run();
     }
+    for(const q of lateIndexes) await env.DB.prepare(q).run();
     for(const q of seeds) await env.DB.prepare(q).run();
     const gc=await env.DB.prepare('SELECT COUNT(*) c FROM gallery_images').first();
     if(!gc||!gc.c){const rows=GALLERY_SEED.map((r,i)=>env.DB.prepare('INSERT OR IGNORE INTO gallery_images(seed_key,category,title,caption,image_url,fit,featured,sort_order) VALUES(?,?,?,?,?,?,?,?)').bind('seed:'+i+':'+r.image_url,GALLERY_CATEGORIES.includes(r.category)?r.category:'Events',r.title,r.caption||null,r.image_url,r.fit==='contain'?'contain':'cover',i<5?1:0,i));if(rows.length) await env.DB.batch(rows)}
@@ -136,14 +205,112 @@ async function setup(req,env){if(!sameOrigin(req))return json({error:'Invalid or
 
 async function changePassword(req,env,user){if(!user)return json({error:'Authentication required.'},401);const b=await body(req),old=String(b.currentPassword||''),next=String(b.newPassword||'');const row=await env.DB.prepare('SELECT password_hash FROM users WHERE id=?').bind(user.id).first();if(!row||!(await verifyPassword(old,row.password_hash)))return json({error:'Current password is incorrect.'},400);if(next.length<10)return json({error:'New password must be at least 10 characters.'},400);const ph=await hashPassword(next,crypto.getRandomValues(new Uint8Array(16)));await env.DB.prepare("UPDATE users SET password_hash=?,must_change_password=0,updated_at=datetime('now') WHERE id=?").bind(ph,user.id).run();const cc=parseCookie(req.headers.get('Cookie')||'');await env.DB.prepare('DELETE FROM sessions WHERE user_id=? AND token_hash<>?').bind(user.id,await sha256Base64(cc.iurs_session||'')).run();return json({ok:true})}
 
+/* ---------------------------------------------------------------------------
+   Excel export. The society needs a real spreadsheet of applicants, not a CSV:
+   Excel silently turns a transaction id like 0179... into a number and drops the
+   leading zero, and Bangla names come out as mojibake without a byte order mark.
+   An .xlsx file is just a ZIP of XML parts, so the XML is written by hand and the
+   entries are stored uncompressed — Excel accepts stored entries, which keeps
+   this to a CRC32 table instead of a deflate implementation.
+   --------------------------------------------------------------------------- */
+let CRC_TABLE;
+function crc32(bytes){
+ if(!CRC_TABLE){CRC_TABLE=new Int32Array(256);for(let i=0;i<256;i++){let c=i;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);CRC_TABLE[i]=c}}
+ let c=-1;for(let i=0;i<bytes.length;i++)c=CRC_TABLE[(c^bytes[i])&0xFF]^(c>>>8);
+ return (c^-1)>>>0;
+}
+function zipStore(files){
+ const enc=new TextEncoder();
+ const u16=n=>[n&0xFF,(n>>>8)&0xFF];
+ const u32=n=>[n&0xFF,(n>>>8)&0xFF,(n>>>16)&0xFF,(n>>>24)&0xFF];
+ const local=[],cd=[];let offset=0;
+ for(const f of files){
+  const name=enc.encode(f.name);
+  const data=typeof f.data==='string'?enc.encode(f.data):f.data;
+  const crc=crc32(data);
+  // 0x0021 is the DOS date for 1980-01-01. A fixed stamp keeps the bytes of an
+  // export reproducible, which makes the file easy to test.
+  const lh=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0x0021),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0)]);
+  local.push(lh,name,data);
+  cd.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0x0021),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(offset)]),name);
+  offset+=lh.length+name.length+data.length;
+ }
+ const cdSize=cd.reduce((n,b)=>n+b.length,0);
+ const eocd=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(files.length),...u16(files.length),...u32(cdSize),...u32(offset),...u16(0)]);
+ const chunks=[...local,...cd,eocd];
+ const out=new Uint8Array(chunks.reduce((n,b)=>n+b.length,0));
+ let p=0;for(const c of chunks){out.set(c,p);p+=c.length}
+ return out;
+}
+// XML 1.0 has no escape for most control characters, so they are removed rather
+// than encoded: one stray character would make Excel refuse the whole file.
+const xmlText=v=>String(v??'').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+function colName(n){let s='';n++;while(n>0){const r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=(n-1-r)/26}return s}
+function sheetRow(r,cells){
+ const out=cells.map((v,i)=>{
+  const ref=colName(i)+r;
+  if(v===null||v===undefined||v==='')return '';
+  if(typeof v==='number'&&Number.isFinite(v))return `<c r="${ref}"><v>${v}</v></c>`;
+  const style=r===1?' s="1"':'';
+  return `<c r="${ref}" t="inlineStr"${style}><is><t xml:space="preserve">${xmlText(v)}</t></is></c>`;
+ }).join('');
+ return `<row r="${r}"${r===1?' ht="22" customHeight="1"':''}>${out}</row>`;
+}
+function buildXlsx(sheetTitle,headers,rows,widths){
+ const last=colName(Math.max(headers.length,1)-1);
+ const body=[sheetRow(1,headers),...rows.map((cells,i)=>sheetRow(i+2,cells))].join('');
+ const cols=(widths||headers.map(()=>18)).map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('');
+ const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+  +`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`
+  +`<dimension ref="A1:${last}${rows.length+1}"/>`
+  +`<sheetViews><sheetView tabSelected="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`
+  +`<sheetFormatPr defaultRowHeight="15"/><cols>${cols}</cols>`
+  +`<sheetData>${body}</sheetData>`
+  +`<autoFilter ref="A1:${last}${rows.length+1}"/></worksheet>`;
+ // Fills 0 and 1 must be "none" then "gray125"; Excel treats any other order as corrupt.
+ const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+  +`<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`
+  +`<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>`
+  +`<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>`
+  +`<fill><patternFill patternType="solid"><fgColor rgb="FFA4112F"/><bgColor indexed="64"/></patternFill></fill></fills>`
+  +`<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>`
+  +`<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>`
+  +`<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>`
+  +`<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center"/></xf></cellXfs>`
+  +`<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+ return zipStore([
+  {name:'[Content_Types].xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`},
+  {name:'_rels/.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+  {name:'xl/workbook.xml',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xmlText(sheetTitle).slice(0,31)}" sheetId="1" r:id="rId1"/></sheets></workbook>`},
+  {name:'xl/_rels/workbook.xml.rels',data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+  {name:'xl/styles.xml',data:styles},
+  {name:'xl/worksheets/sheet1.xml',data:sheet}
+ ]);
+}
+const APPLICATION_EXPORT=[
+ ['id','#',6],['created_at','Submitted',18],['status','Status',12],['payment_status','Payment',12],
+ ['name','Full name',24],['student_id','Student / IURS ID',18],['department','Department',22],
+ ['academic_session','Session',12],['year_level','Year',10],['email','Email',26],['phone','Phone',16],
+ ['payment_method','Paid via',14],['transaction_id','Transaction ID',22],['payment_amount','Amount',10],
+ ['payment_sender','Paid from',16],['payment_date','Payment date',14],['verified_at','Verified at',18],
+ ['verified_by','Verified by',16],['payment_note','Payment note',24],
+ ['research_interests','Research interests',34],['skills','Skills',28],['experience','Experience',34],
+ ['motivation','Why they want to join',40],['admin_notes','Admin notes',28]
+];
+function applicationRows(rows){
+ return rows.map(r=>APPLICATION_EXPORT.map(([k])=>k==='id'?Number(r.id):(r[k]??'')));
+}
+
 async function adminApi(req,env,user,path){if(!allowed(user))return json({error:'Executive access required.'},403);const m=req.method;if(m!=='GET'&&!sameOrigin(req))return json({error:'Invalid origin'},403);
+
  if(path==='/api/admin/summary'&&m==='GET'){const [members,execs,papers,events,notices]=await Promise.all([env.DB.prepare("SELECT COUNT(*) c FROM users WHERE role='member' AND status='active'").first(),env.DB.prepare("SELECT COUNT(*) c FROM users WHERE role IN ('executive','admin') AND status='active'").first(),env.DB.prepare('SELECT COUNT(*) c FROM publications').first(),env.DB.prepare('SELECT COUNT(*) c FROM events').first(),env.DB.prepare('SELECT COUNT(*) c FROM notices WHERE published=1').first()]);return json({members:+members.c,executives:+execs.c,publications:+papers.c,events:+events.c,notices:+notices.c})}
  if(path==='/api/admin/members'&&m==='GET'){const r=await env.DB.prepare('SELECT id,iurs_id,name,email,department,year_level,position,phone,status,role,must_change_password,created_at FROM users ORDER BY id DESC').all();return json(r.results||[])}
  if(path==='/api/admin/members'&&m==='POST'){const b=await body(req),id=cleanText(b.iursId,80).toUpperCase(),name=cleanText(b.name,160),pw=String(b.password||'');if(!id||!name||pw.length<10)return json({error:'IURS ID, name and a 10+ character password are required.'},400);let role=b.role==='executive'?'executive':'member';if(role==='executive'&&user.role!=='admin')return json({error:'Only administrators can create executives.'},403);try{const ph=await hashPassword(pw,crypto.getRandomValues(new Uint8Array(16)));await env.DB.prepare('INSERT INTO users(iurs_id,password_hash,role,name,email,department,year_level,position,phone,must_change_password) VALUES(?,?,?,?,?,?,?,?,?,1)').bind(id,ph,role,name,cleanText(b.email,200)||null,cleanText(b.department,160)||null,cleanText(b.yearLevel,40)||null,cleanText(b.position,120)||null,cleanText(b.phone,60)||null).run()}catch(e){return json({error:'Could not create account. The IURS ID may already exist.'},400)}return json({ok:true})}
  if(path.startsWith('/api/admin/members/')&&m==='PUT'){const id=Number(path.split('/').pop());const target=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'User not found.'},404);const b=await body(req);if(target.role==='admin'&&user.role!=='admin')return json({error:'Administrator account requires administrator access.'},403);if(b.role && b.role!==target.role && user.role!=='admin')return json({error:'Only administrators can change account roles.'},403);const role=b.role?((b.role==='admin'&&user.role==='admin')?'admin':(b.role==='executive'?'executive':'member')):target.role;if(role==='admin'&&user.role!=='admin')return json({error:'Only administrators can assign admin role.'},403);await env.DB.prepare("UPDATE users SET name=?,email=?,department=?,year_level=?,position=?,phone=?,role=?,status=?,updated_at=datetime('now') WHERE id=?").bind(cleanText(b.name,160)||target.name,cleanText(b.email,200)||null,cleanText(b.department,160)||null,cleanText(b.yearLevel,40)||null,cleanText(b.position,120)||null,cleanText(b.phone,60)||null,role,['active','inactive','suspended'].includes(b.status)?b.status:target.status,id).run();return json({ok:true})}
  if(path.startsWith('/api/admin/members/')&&m==='DELETE'){if(user.role!=='admin')return json({error:'Only administrators can deactivate accounts.'},403);const id=Number(path.split('/').pop());await env.DB.prepare("UPDATE users SET status='inactive',updated_at=datetime('now') WHERE id=? AND role!='admin'").bind(id).run();return json({ok:true})}
  if(path.match(/^\/api\/admin\/members\/\d+\/reset-password$/)&&m==='POST'){const id=Number(path.split('/')[4]);const target=await env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'User not found.'},404);if(target.role==='admin'&&target.id!==user.id)return json({error:'An administrator password cannot be reset from here. The account owner must change it from the Security tab.'},403);if(user.role!=='admin'&&target.role!=='member')return json({error:'Executives can only reset member passwords.'},403);const b=await body(req),pw=String(b.password||'');if(pw.length<10)return json({error:'Password must be at least 10 characters.'},400);const ph=await hashPassword(pw,crypto.getRandomValues(new Uint8Array(16)));await env.DB.prepare("UPDATE users SET password_hash=?,must_change_password=1,updated_at=datetime('now') WHERE id=?").bind(ph,id).run();await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(id).run();return json({ok:true})}
- if(path==='/api/admin/stats'&&m==='PUT'){const b=await body(req);for(const key of ['members','research_outputs','workshops','peer_reviewed','working_papers','under_review'])if(b[key]!=null)await env.DB.prepare('INSERT INTO site_stats(key,value,label) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').bind(key,cleanText(b[key],50),key).run();return json({ok:true})}
+ if(path==='/api/admin/stats'&&m==='GET')return json({stats:Object.fromEntries(((await env.DB.prepare('SELECT key,value,label FROM site_stats').all()).results||[]).map(r=>[r.key,r.value])),labels:STAT_LABELS,keys:STAT_KEYS});
+ if(path==='/api/admin/stats'&&m==='PUT'){const b=await body(req);for(const key of STAT_KEYS)if(b[key]!=null)await env.DB.prepare('INSERT INTO site_stats(key,value,label) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').bind(key,cleanText(b[key],50),STAT_LABELS[key]||key).run();return json({ok:true})}
  if(path==='/api/admin/publications'&&m==='GET'){const r=await env.DB.prepare('SELECT * FROM publications ORDER BY sort_order,publication_year DESC,id DESC').all();return json({publications:r.results||[],categories:PUB_CATEGORIES,rows:r.results||[]})}
  if(path==='/api/admin/publications'&&m==='POST'){const b=await body(req);const cat=PUB_CATEGORIES.includes(b.category)?b.category:null;
   if(!cleanText(b.title,500)||!cleanText(b.authors,1000)||!cat)return json({error:'Title, authors and a valid category are required.'},400);
@@ -319,22 +486,91 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   return json({ok:true})}
 
  /* ---------- Join IURS applications (never public) ---------- */
- if(path==='/api/admin/applications'&&m==='GET'){const sp=new URL(req.url).searchParams;const st=sp.get('status')||'';const q=cleanText(sp.get('q')||'',120);
+ /* Recruitment window. GET returns the raw stored settings (the form needs the
+    switch itself, not the computed "is it open right now"), plus the computed
+    state so the panel can say what the public is currently seeing. */
+ if(path==='/api/admin/recruitment'&&m==='GET'){const s=await getRecruitment(env);return json({settings:s,liveNow:recruitmentIsOpen(s),today:new Date().toISOString().slice(0,10)})}
+ if(path==='/api/admin/recruitment'&&m==='PUT'){const b=await body(req);
+  const bool=v=>v===true||v===1||v==='1'||v==='true'||v==='on';
+  // A date box that is cleared must actually clear, so an invalid value becomes ''
+  // rather than being ignored — otherwise the old bound would silently stay in force.
+  const date=v=>{const s=cleanText(v,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:''};
+  const s={...RECRUITMENT_DEFAULTS,
+   open:bool(b.open),requirePayment:bool(b.requirePayment),
+   title:cleanText(b.title,120)||RECRUITMENT_DEFAULTS.title,
+   openMessage:cleanText(b.openMessage,600)||RECRUITMENT_DEFAULTS.openMessage,
+   closedMessage:cleanText(b.closedMessage,600)||RECRUITMENT_DEFAULTS.closedMessage,
+   opensOn:date(b.opensOn),closesOn:date(b.closesOn),
+   fee:cleanText(b.fee,20),currency:cleanText(b.currency,10)||'BDT',
+   feeNote:cleanText(b.feeNote,300),methods:cleanText(b.methods,300),
+   payTo:cleanText(b.payTo,120),payToLabel:cleanText(b.payToLabel,120)};
+  if(s.opensOn&&s.closesOn&&s.closesOn<s.opensOn)return json({error:'The closing date cannot be before the opening date.'},400);
+  if(s.requirePayment&&!s.fee)return json({error:'Set the membership fee, or switch off "payment required".'},400);
+  if(s.requirePayment&&!s.payTo)return json({error:'Enter the number or account applicants should pay to.'},400);
+  await env.DB.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,datetime('now')) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(RECRUITMENT_KEY,JSON.stringify(s)).run();
+  return json({ok:true,settings:s,liveNow:recruitmentIsOpen(s)})}
+
+ if(path==='/api/admin/applications'&&m==='GET'){const sp=new URL(req.url).searchParams;const st=sp.get('status')||'';const pay=sp.get('payment')||'';const q=cleanText(sp.get('q')||'',120);
   let sql='SELECT * FROM applications',where=[],bind=[];
   if(APPLICATION_STATUSES.includes(st)){where.push('status=?');bind.push(st)}
-  if(q){where.push('(name LIKE ? OR student_id LIKE ? OR email LIKE ? OR department LIKE ? OR phone LIKE ? OR research_interests LIKE ?)');const like='%'+q+'%';bind.push(like,like,like,like,like,like)}
+  if(PAYMENT_STATUSES.includes(pay)){where.push('COALESCE(payment_status,?)=?');bind.push('unverified',pay)}
+  if(q){where.push('(name LIKE ? OR student_id LIKE ? OR email LIKE ? OR department LIKE ? OR phone LIKE ? OR research_interests LIKE ? OR transaction_id LIKE ?)');const like='%'+q+'%';bind.push(like,like,like,like,like,like,like)}
   if(where.length)sql+=' WHERE '+where.join(' AND ');
   sql+=' ORDER BY created_at DESC,id DESC LIMIT 500';
   const r=await env.DB.prepare(sql).bind(...bind).all();
   const counts=await env.DB.prepare('SELECT status,COUNT(*) c FROM applications GROUP BY status').all();
-  return json({applications:r.results||[],counts:Object.fromEntries((counts.results||[]).map(x=>[x.status,+x.c])),statuses:APPLICATION_STATUSES})}
+  const pcounts=await env.DB.prepare("SELECT COALESCE(payment_status,'unverified') p,COUNT(*) c FROM applications GROUP BY 1").all();
+  return json({applications:r.results||[],counts:Object.fromEntries((counts.results||[]).map(x=>[x.status,+x.c])),paymentCounts:Object.fromEntries((pcounts.results||[]).map(x=>[x.p,+x.c])),statuses:APPLICATION_STATUSES,paymentStatuses:PAYMENT_STATUSES})}
+
+ /* Spreadsheet export. Whatever filter the panel is showing is what gets exported,
+    so "download the people whose payment is still unverified" needs no extra UI. */
+ if(path.startsWith('/api/admin/applications/export')&&m==='GET'){const sp=new URL(req.url).searchParams;const st=sp.get('status')||'';const pay=sp.get('payment')||'';const q=cleanText(sp.get('q')||'',120);
+  let sql='SELECT * FROM applications',where=[],bind=[];
+  if(APPLICATION_STATUSES.includes(st)){where.push('status=?');bind.push(st)}
+  if(PAYMENT_STATUSES.includes(pay)){where.push('COALESCE(payment_status,?)=?');bind.push('unverified',pay)}
+  if(q){where.push('(name LIKE ? OR student_id LIKE ? OR email LIKE ? OR department LIKE ? OR phone LIKE ? OR transaction_id LIKE ?)');const like='%'+q+'%';bind.push(like,like,like,like,like,like)}
+  if(where.length)sql+=' WHERE '+where.join(' AND ');
+  sql+=' ORDER BY created_at DESC,id DESC LIMIT 5000';
+  const rows=(await env.DB.prepare(sql).bind(...bind).all()).results||[];
+  const stamp=new Date().toISOString().slice(0,10);
+  const base='IURS-applications-'+stamp+(st?'-'+st:'')+(pay?'-'+pay+'-payment':'');
+  if(path.endsWith('.csv')){
+   // The BOM is what makes Excel read the file as UTF-8; without it Bangla names
+   // arrive as mojibake. A leading tab keeps long ids from being read as numbers.
+   const cell=v=>{const s=String(v??'');return '"'+(/^[0-9+][0-9+\-\s]{6,}$/.test(s)?'\t'+s:s).replace(/"/g,'""')+'"'};
+   const csv='\uFEFF'+[APPLICATION_EXPORT.map(c=>cell(c[1])).join(','),...rows.map(r=>APPLICATION_EXPORT.map(([k])=>cell(r[k])).join(','))].join('\r\n')+'\r\n';
+   return new Response(csv,{headers:{'content-type':'text/csv; charset=utf-8','content-disposition':`attachment; filename="${base}.csv"`,'cache-control':'no-store'}})}
+  const xlsx=buildXlsx('Applications',APPLICATION_EXPORT.map(c=>c[1]),applicationRows(rows),APPLICATION_EXPORT.map(c=>c[2]));
+  return new Response(xlsx,{headers:{'content-type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','content-disposition':`attachment; filename="${base}.xlsx"`,'cache-control':'no-store'}})}
+
+ /* Payment verification is its own route on purpose: the person checking the
+    bKash statement is doing a different job from the person deciding whether to
+    take the applicant, and the two must be recorded separately. */
+ if(path.match(/^\/api\/admin\/applications\/\d+\/payment$/)&&m==='PUT'){const id=Number(path.split('/')[4]),b=await body(req);
+  const row=await env.DB.prepare('SELECT id FROM applications WHERE id=?').bind(id).first();
+  if(!row)return json({error:'Application not found.'},404);
+  const ps=String(b.paymentStatus||'');
+  if(!PAYMENT_STATUSES.includes(ps))return json({error:'Payment status must be one of: '+PAYMENT_STATUSES.join(', ')+'.'},400);
+  const verified=ps==='verified';
+  await env.DB.prepare("UPDATE applications SET payment_status=?,payment_note=?,verified_at=CASE WHEN ?='verified' THEN datetime('now') ELSE NULL END,verified_by=CASE WHEN ?='verified' THEN ? ELSE NULL END,updated_at=datetime('now') WHERE id=?")
+   .bind(ps,cleanText(b.paymentNote,1000)||null,ps,ps,verified?(user.name||user.iurs_id):null,id).run();
+  return json({ok:true})}
+
  if(path.match(/^\/api\/admin\/applications\/\d+$/)&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req);
-  const prev=await env.DB.prepare('SELECT status FROM applications WHERE id=?').bind(id).first();
+  const prev=await env.DB.prepare('SELECT status,payment_status,transaction_id FROM applications WHERE id=?').bind(id).first();
   if(!prev)return json({error:'Application not found.'},404);
   /* If a status is supplied it must be a real one. Silently keeping the old status
      would report success while nothing changed, which hides a typo. */
   const st=b.status===undefined||b.status===null||b.status===''?prev.status:String(b.status);
   if(!APPLICATION_STATUSES.includes(st))return json({error:'Status must be one of: '+APPLICATION_STATUSES.join(', ')+'.'},400);
+  /* The rule the society asked for: nobody is accepted until the money has been
+     matched against the transaction id. Enforced here rather than only in the
+     panel, so it also holds if someone calls the API directly. */
+  if(st==='approved'&&prev.status!=='approved'){
+   const rs=await getRecruitment(env);
+   if(rs.requirePayment&&(prev.payment_status||'unverified')!=='verified')
+    return json({error:'This application cannot be approved yet: the payment is not verified. Match the transaction ID against your bKash/Nagad/bank statement and mark the payment verified first.',code:'payment_unverified'},409);
+  }
   await env.DB.prepare("UPDATE applications SET status=?,admin_notes=?,updated_at=datetime('now') WHERE id=?").bind(st,cleanText(b.notes,4000)||null,id).run();
   return json({ok:true})}
  if(path.match(/^\/api\/admin\/applications\/\d+$/)&&m==='DELETE'){if(user.role!=='admin')return json({error:'Only administrators can delete an application.'},403);
@@ -343,6 +579,12 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
  return json({error:'Not found'},404)}
 
 async function publicApi(req,env,path){
+ // Whether the Join IURS form should be usable right now, and what to pay.
+ if(path==='/api/public/recruitment')return json(publicRecruitment(await getRecruitment(env)));
+ /* The login page offers a "first-time setup" link. Once an admin account exists
+    that link only leads to a 409, so the page hides it — but it has to ask,
+    because the pages are static files. Only a boolean is returned. */
+ if(path==='/api/public/setup-status'){const c=await env.DB.prepare('SELECT COUNT(*) c FROM users').first();return json({needsSetup:Number(c?.c||0)===0})}
  if(path==='/api/public/stats')return json(Object.fromEntries(((await env.DB.prepare('SELECT key,value,label FROM site_stats').all()).results||[]).map(r=>[r.key,{value:r.value,label:r.label}])));
  if(path==='/api/public/publications'){const r=await env.DB.prepare("SELECT id,title,authors,category,type_label,journal,publication_year,doi,url,abstract,featured FROM publications WHERE published_status='published' ORDER BY sort_order,publication_year DESC,id DESC").all();
   const rows=r.results||[];
@@ -373,22 +615,43 @@ async function publicApi(req,env,path){
    --------------------------------------------------------------------------- */
 async function submitApplication(req,env){
  if(!sameOrigin(req))return json({error:'Invalid origin'},403);
+ /* The window is checked here and not only in the page. A form left open in a
+    browser tab from last month must not be able to post an application after
+    recruitment has closed. */
+ const rs=await getRecruitment(env);
+ if(!recruitmentIsOpen(rs))return json({error:rs.closedMessage||'Member recruitment is closed at the moment.',code:'recruitment_closed'},403);
  const b=await body(req);
  if(cleanText(b.website,200))return json({ok:true});           // honeypot: silently accept, store nothing
  const name=cleanText(b.name,160),email=cleanText(b.email,200);
  if(!name)return json({error:'Please enter your full name.'},400);
  if(!email||!/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email))return json({error:'Please enter a valid email address.'},400);
  if(!cleanText(b.department,200))return json({error:'Please enter your department.'},400);
+ if(!cleanText(b.academicSession,80))return json({error:'Please enter your academic session, for example 2022-23.'},400);
  if(!cleanText(b.motivation,4000))return json({error:'Please tell us why you would like to join.'},400);
+ const method=cleanText(b.paymentMethod,60),txn=cleanText(b.transactionId,80);
+ if(rs.requirePayment){
+  const methods=String(rs.methods||'').split(',').map(x=>x.trim()).filter(Boolean);
+  if(!method||(methods.length&&!methods.some(x=>x.toLowerCase()===method.toLowerCase())))
+   return json({error:'Please choose how you paid the membership fee.'},400);
+  /* A transaction id is the only thing that lets the treasurer match a payment to
+     a person, so it is required and must look like one. Providers use 6-32
+     letters/digits; anything shorter is almost always a typo or a placeholder. */
+  if(!/^[A-Za-z0-9][A-Za-z0-9.\-_]{5,31}$/.test(txn))
+   return json({error:'Please enter the full transaction ID from your payment receipt (at least 6 characters, letters and numbers only).'},400);
+  const clash=await env.DB.prepare('SELECT id FROM applications WHERE transaction_id IS NOT NULL AND upper(transaction_id)=upper(?)').bind(txn).first();
+  if(clash)return json({error:'This transaction ID has already been submitted with another application. Please check your receipt.'},409);
+ }
  const ip=req.headers.get('CF-Connecting-IP')||'unknown';
  const key=await sha256Base64('join|'+ip);
  const recent=await env.DB.prepare("SELECT COUNT(*) c FROM applications WHERE source_key=? AND created_at>datetime('now','-1 day')").bind(key).first();
  if(Number(recent?.c||0)>=5)return json({error:'We have already received several applications from this connection today. Please email us instead.'},429);
  const dup=await env.DB.prepare("SELECT id FROM applications WHERE lower(email)=lower(?) AND created_at>datetime('now','-7 days')").bind(email).first();
  if(dup)return json({error:'An application from this email address is already with us. We will be in touch soon.'},409);
- await env.DB.prepare('INSERT INTO applications(name,student_id,department,academic_session,email,phone,research_interests,skills,experience,motivation,status,source_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
-  .bind(name,cleanText(b.studentId,80)||null,cleanText(b.department,200),cleanText(b.academicSession,80)||null,email,cleanText(b.phone,60)||null,cleanText(b.researchInterests,2000)||null,cleanText(b.skills,2000)||null,cleanText(b.experience,4000)||null,cleanText(b.motivation,4000),'pending',key).run();
- return json({ok:true,message:'Thank you. Your application has reached the IURS executive team.'})}
+ await env.DB.prepare('INSERT INTO applications(name,student_id,department,academic_session,year_level,email,phone,research_interests,skills,experience,motivation,payment_method,transaction_id,payment_amount,payment_sender,payment_date,payment_status,status,source_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+  .bind(name,cleanText(b.studentId,80)||null,cleanText(b.department,200),cleanText(b.academicSession,80),cleanText(b.yearLevel,40)||null,email,cleanText(b.phone,60)||null,cleanText(b.researchInterests,2000)||null,cleanText(b.skills,2000)||null,cleanText(b.experience,4000)||null,cleanText(b.motivation,4000),method||null,txn||null,cleanText(b.paymentAmount,20)||rs.fee||null,cleanText(b.paymentSender,60)||null,cleanText(b.paymentDate,20)||null,'unverified','pending',key).run();
+ return json({ok:true,message:rs.requirePayment
+  ? 'Thank you. Your application has reached the IURS executive team. It stays pending until we match your transaction ID against our payment record — you will hear from us by email once that is done.'
+  : 'Thank you. Your application has reached the IURS executive team.'})}
 
 /* ---------------------------------------------------------------------------
    Chatbot. It answers ONLY from rows in this database plus a short fixed
@@ -446,8 +709,16 @@ async function chatFacts(env,q){
   const rows=await grab("SELECT title,author,post_date,excerpt FROM blog_posts WHERE status='published' ORDER BY post_date DESC LIMIT 5");
   add('BLOG ARTICLES:',rows,r=>`- ${r.title}${r.author?' by '+r.author:''}${r.post_date?' ('+r.post_date+')':''}${r.excerpt?': '+String(r.excerpt).slice(0,160):''}`);
  }
- if(want('join|member|membership|apply|application|recruit|how do i|register')){
-  out.push('HOW TO JOIN:\n- Anyone studying at Islamic University, Kushtia can apply through the Join IURS form at /join.html. It asks for name, student/IURS ID, department, session, email, phone, research interests, skills, previous research experience and reasons for joining. The executive team reviews each application and replies by email.');
+ if(want('join|member|membership|apply|application|recruit|how do i|register|fee|payment|bkash|nagad')){
+  /* Read the live switch rather than describing the form as always open — telling
+     a student to apply during a closed month would be a wrong answer. */
+  const rs=publicRecruitment(await getRecruitment(env));
+  out.push('HOW TO JOIN:\n- '+(rs.open
+   ? 'Member recruitment is OPEN right now. Apply through the Join IURS form at /join.html.'+(rs.closesOn?' It closes on '+rs.closesOn+'.':'')
+   : 'Member recruitment is CLOSED right now, so the form at /join.html cannot be submitted.'+(rs.opensOn?' It opens on '+rs.opensOn+'.':' The next call for members is announced on this website and on the IURS Facebook page.'))
+   +'\n- The form asks for name, student/IURS ID, department, session, year, email, phone, research interests, skills, previous research experience and reasons for joining.'
+   +(rs.requirePayment&&rs.fee?`\n- There is a membership fee of ${rs.fee} ${rs.currency}, paid to ${rs.payTo}${rs.payToLabel?' ('+rs.payToLabel+')':''} by ${rs.methods.join(', ')||'mobile banking'}. The transaction ID from the receipt must be entered on the form.`:'')
+   +'\n- Every application stays pending until the executive team checks it'+(rs.requirePayment?' and matches the transaction ID against the society payment record':'')+'. The team then replies by email.');
  }
  if(want('gallery|photo|picture|image')){
   const c=await grab('SELECT COUNT(*) n FROM gallery_images WHERE published=1');

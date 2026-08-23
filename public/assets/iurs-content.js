@@ -1,3 +1,69 @@
+/* Reveal-on-scroll rescue.
+   Every page hides .reveal elements with opacity:0 and relies on an
+   IntersectionObserver to add .visible. That observer is registered once, at
+   load, with a plain querySelectorAll — so any card injected later by the
+   live-data fetch was never observed and stayed at opacity:0 permanently. That
+   is what made the Featured Research and Latest Events sections render as blank
+   space once the API started answering.
+
+   This watches the document for new .reveal nodes so injected content animates
+   in like static content, and force-reveals anything still hidden near the
+   viewport after a moment, so a slow fetch or a missing observer can never
+   blank a section again. It is additive: the per-page observers keep working
+   (they also drive the number counters), and adding .visible twice is a no-op. */
+(function () {
+  'use strict';
+  if (window.__iursRevealManager) return;
+  window.__iursRevealManager = true;
+
+  var show = function (el) { el.classList.add('visible'); };
+  var io = null;
+
+  if ('IntersectionObserver' in window) {
+    io = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].isIntersecting) { show(entries[i].target); io.unobserve(entries[i].target); }
+      }
+    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+  }
+
+  function track(root) {
+    if (!root || !root.querySelectorAll) return;
+    var list = root.querySelectorAll('.reveal:not(.visible)');
+    for (var i = 0; i < list.length; i++) { io ? io.observe(list[i]) : show(list[i]); }
+    // querySelectorAll does not match the root node itself.
+    if (root.classList && root.classList.contains('reveal') && !root.classList.contains('visible')) {
+      io ? io.observe(root) : show(root);
+    }
+  }
+
+  var start = function () {
+    track(document);
+    if (window.MutationObserver) {
+      new MutationObserver(function (muts) {
+        for (var i = 0; i < muts.length; i++) {
+          var added = muts[i].addedNodes;
+          for (var j = 0; j < added.length; j++) {
+            if (added[j].nodeType === 1) track(added[j]);
+          }
+        }
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    }
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+
+  /* Safety net. Only touches elements already at or near the viewport, so the
+     scroll animation further down the page is left intact. */
+  setTimeout(function () {
+    var left = document.querySelectorAll('.reveal:not(.visible)');
+    for (var i = 0; i < left.length; i++) {
+      if (left[i].getBoundingClientRect().top < window.innerHeight * 1.25) show(left[i]);
+    }
+  }, 2200);
+})();
+
 /* IURS live content binder — gallery + training sessions.
    Progressive enhancement: the page already contains the full static content.
    This script only REPLACES it when the API answers successfully, so a database
@@ -429,12 +495,110 @@
   }
 
   /* ---------------- join.html ---------------- */
+  /* The recruitment window lives in the database and is edited from the admin panel.
+     The server is the real gate — it rejects a submission outside the window with
+     403 recruitment_closed — so this only keeps a visitor from filling in a long form
+     that was never going to be accepted. */
   function bindJoin() {
     var form = document.getElementById('join-form');
     if (!form) return;
     var msg = document.getElementById('j-msg');
     var btn = document.getElementById('j-submit');
+    var payBox = document.getElementById('j-pay');
+    var methodSel = document.getElementById('j-method');
     var opened = Date.now();
+    var needPayment = false;
+
+    function pretty(d) {
+      // YYYY-MM-DD -> 2 March 2026, without dragging in a date library.
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || '');
+      if (!m) return d || '';
+      var names = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+        'August', 'September', 'October', 'November', 'December'];
+      return Number(m[3]) + ' ' + names[Number(m[2]) - 1] + ' ' + m[1];
+    }
+
+    function showClosed(text) {
+      form.hidden = true;
+      var fee = document.getElementById('j-fee');
+      if (fee) fee.hidden = true;
+      var box = document.getElementById('j-closed');
+      var cm = document.getElementById('j-closed-msg');
+      if (cm) cm.textContent = text;
+      if (box) box.hidden = false;
+    }
+
+    function paintWindow(r) {
+      var box = document.getElementById('j-window');
+      if (!box) return;
+      box.className = 'iu-window ' + (r.open ? 'open' : 'shut');
+      box.hidden = false;
+      var state = document.getElementById('j-window-state');
+      if (state) state.textContent = r.open ? 'Applications are open' : 'Applications are closed';
+      var dates = document.getElementById('j-window-dates');
+      if (dates) {
+        var parts = [];
+        if (r.opensOn) parts.push('Opens ' + pretty(r.opensOn));
+        if (r.closesOn) parts.push((r.open ? 'Closes ' : 'Closed ') + pretty(r.closesOn));
+        dates.textContent = parts.join(' · ');
+      }
+      var wm = document.getElementById('j-window-msg');
+      if (wm) wm.textContent = r.message || '';
+      var title = document.getElementById('j-window-title');
+      if (title && r.title) title.textContent = r.title;
+    }
+
+    function paintFee(r) {
+      needPayment = !!r.requirePayment;
+      if (payBox) payBox.hidden = !needPayment;
+      var fee = document.getElementById('j-fee');
+      if (!needPayment) { if (fee) fee.hidden = true; return; }
+      if (fee) fee.hidden = false;
+      var set = function (id, v) { var el = document.getElementById(id); if (el && v) el.textContent = v; };
+      set('j-fee-value', r.fee);
+      set('j-fee-currency', r.currency);
+      set('j-fee-note', r.feeNote);
+      set('j-fee-payto', r.payTo);
+      set('j-fee-paytolabel', r.payToLabel);
+      var amount = form.elements.paymentAmount;
+      if (amount && r.fee && !amount.value) amount.value = r.fee;
+      var chips = document.getElementById('j-fee-methods');
+      var methods = r.methods && r.methods.length ? r.methods : [];
+      if (chips) {
+        chips.textContent = '';
+        methods.forEach(function (m) {
+          var s = document.createElement('span'); s.textContent = m; chips.appendChild(s);
+        });
+      }
+      if (methodSel) {
+        methodSel.textContent = '';
+        var first = document.createElement('option');
+        first.value = ''; first.textContent = 'Select…';
+        methodSel.appendChild(first);
+        methods.forEach(function (m) {
+          var o = document.createElement('option'); o.value = m; o.textContent = m; methodSel.appendChild(o);
+        });
+      }
+      var copy = document.getElementById('j-fee-copy');
+      if (copy && r.payTo) {
+        copy.addEventListener('click', function () {
+          var done = function () { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy'; }, 1600); };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(r.payTo).then(done, function () {});
+          }
+        });
+      }
+    }
+
+    fetch('/api/public/recruitment').then(function (r) { return r.json(); }).then(function (r) {
+      if (!r || typeof r.open !== 'boolean') return;
+      paintWindow(r);
+      if (!r.open) { showClosed(r.message || 'Member recruitment is closed at the moment.'); return; }
+      paintFee(r);
+    }).catch(function (e) {
+      // Leave the form usable. A submission outside the window is refused server-side.
+      console.warn('[IURS] recruitment window unknown:', e.message);
+    });
 
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
@@ -447,7 +611,8 @@
       });
 
       var required = [['name', 'your full name'], ['department', 'your department'],
-        ['email', 'your email address'], ['motivation', 'why you would like to join']];
+        ['academicSession', 'your academic session'], ['email', 'your email address'],
+        ['motivation', 'why you would like to join']];
       for (var i = 0; i < required.length; i++) {
         if (!data[required[i][0]]) {
           msg.className = 'iu-msg bad';
@@ -462,6 +627,21 @@
         msg.textContent = 'That email address does not look right.';
         form.elements.email.focus();
         return;
+      }
+      if (needPayment) {
+        if (!data.paymentMethod) {
+          msg.className = 'iu-msg bad';
+          msg.textContent = 'Please choose how you paid the membership fee.';
+          if (methodSel) methodSel.focus();
+          return;
+        }
+        // Same shape the server enforces, so a typo is caught before the round trip.
+        if (!/^[A-Za-z0-9][A-Za-z0-9.\-_]{5,31}$/.test(data.transactionId || '')) {
+          msg.className = 'iu-msg bad';
+          msg.textContent = 'Please enter the transaction ID from your payment receipt — at least 6 characters, exactly as it appears.';
+          if (form.elements.transactionId) form.elements.transactionId.focus();
+          return;
+        }
       }
       // A real person takes longer than three seconds to fill this in.
       if (Date.now() - opened < 3000) {
@@ -479,16 +659,20 @@
         body: JSON.stringify(data)
       }).then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (d) {
-          if (!r.ok) throw new Error(d.error || 'We could not send your application. Please try again.');
+          if (!r.ok) { var err = new Error(d.error || 'We could not send your application. Please try again.'); err.code = d.code; throw err; }
           return d;
         });
       }).then(function (d) {
         form.hidden = true;
+        var fee = document.getElementById('j-fee');
+        if (fee) fee.hidden = true;
         var done = document.getElementById('join-done');
         var dm = document.getElementById('join-done-msg');
-        if (dm && d.message) dm.textContent = d.message + ' They will review it and contact you by email.';
+        if (dm && d.message) dm.textContent = d.message;
         if (done) { done.hidden = false; done.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
       }).catch(function (e) {
+        // The window can close between page load and submit.
+        if (e.code === 'recruitment_closed') { showClosed(e.message); return; }
         btn.disabled = false;
         msg.className = 'iu-msg bad';
         msg.textContent = e.message;
@@ -498,11 +682,11 @@
 
   /* ---------------- floating assistant ---------------- */
   var CHAT_CSS = '.iu-chat-btn{position:fixed;right:18px;bottom:18px;z-index:9998;width:56px;height:56px;border-radius:50%;' +
-    'border:0;background:#960b27;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.28);display:flex;' +
-    'align-items:center;justify-content:center;transition:.2s}.iu-chat-btn:hover{background:#730017;transform:translateY(-2px)}' +
-    '.iu-chat-btn:focus-visible{outline:3px solid #fdc72f;outline-offset:3px}' +
+    'border:0;background:#a4112f;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.28);display:flex;' +
+    'align-items:center;justify-content:center;transition:.2s}.iu-chat-btn:hover{background:#7c0a20;transform:translateY(-2px)}' +
+    '.iu-chat-btn:focus-visible{outline:3px solid #f6c445;outline-offset:3px}' +
     '.iu-chat{position:fixed;right:18px;bottom:84px;z-index:9999;width:340px;max-width:calc(100vw - 36px);height:460px;' +
-    'max-height:calc(100vh - 120px);background:#fff;border:1px solid #e7e1d4;border-radius:16px;box-shadow:0 22px 60px rgba(0,0,0,.22);' +
+    'max-height:calc(100vh - 120px);background:#fff;border:1px solid #e5e8ef;border-radius:16px;box-shadow:0 22px 60px rgba(0,0,0,.22);' +
     'display:none;flex-direction:column;overflow:hidden;font:14px Inter,system-ui,sans-serif}.iu-chat.open{display:flex}' +
     '.iu-chat-head{background:#051435;color:#fff;padding:13px 15px;display:flex;align-items:center;gap:10px;flex:none}' +
     '.iu-chat-head img{width:28px;height:28px;object-fit:contain;border-radius:6px;background:#fff}' +
@@ -510,14 +694,14 @@
     '.iu-chat-head button{margin-left:auto;background:transparent;border:0;color:#b9c4d6;font-size:18px;cursor:pointer;line-height:1}' +
     '.iu-chat-log{flex:1;overflow-y:auto;padding:14px;background:#f7f4ee;display:flex;flex-direction:column;gap:10px}' +
     '.iu-chat-log p{margin:0;padding:10px 12px;border-radius:12px;font-size:13.5px;line-height:1.65;max-width:88%;white-space:pre-wrap;word-break:break-word}' +
-    '.iu-chat-log .bot{background:#fff;border:1px solid #e7e1d4;align-self:flex-start;color:#2b2b2b}' +
-    '.iu-chat-log .me{background:#960b27;color:#fff;align-self:flex-end}' +
-    '.iu-chat-sug{display:flex;flex-wrap:wrap;gap:6px}.iu-chat-sug button{background:#fff;border:1px solid #e7e1d4;border-radius:999px;' +
-    'padding:6px 11px;font:600 11.5px Inter,sans-serif;color:#960b27;cursor:pointer}.iu-chat-sug button:hover{border-color:#960b27}' +
-    '.iu-chat-form{display:flex;gap:7px;padding:10px;border-top:1px solid #e7e1d4;background:#fff;flex:none}' +
-    '.iu-chat-form input{flex:1;border:1px solid #e7e1d4;border-radius:9px;padding:10px 11px;font:inherit;font-size:13.5px;min-width:0}' +
-    '.iu-chat-form input:focus{outline:2px solid #960b27;outline-offset:1px}' +
-    '.iu-chat-form button{border:0;background:#960b27;color:#fff;border-radius:9px;padding:0 14px;cursor:pointer;font-size:14px}' +
+    '.iu-chat-log .bot{background:#fff;border:1px solid #e5e8ef;align-self:flex-start;color:#2b2b2b}' +
+    '.iu-chat-log .me{background:#a4112f;color:#fff;align-self:flex-end}' +
+    '.iu-chat-sug{display:flex;flex-wrap:wrap;gap:6px}.iu-chat-sug button{background:#fff;border:1px solid #e5e8ef;border-radius:999px;' +
+    'padding:6px 11px;font:600 11.5px Inter,sans-serif;color:#a4112f;cursor:pointer}.iu-chat-sug button:hover{border-color:#a4112f}' +
+    '.iu-chat-form{display:flex;gap:7px;padding:10px;border-top:1px solid #e5e8ef;background:#fff;flex:none}' +
+    '.iu-chat-form input{flex:1;border:1px solid #e5e8ef;border-radius:9px;padding:10px 11px;font:inherit;font-size:13.5px;min-width:0}' +
+    '.iu-chat-form input:focus{outline:2px solid #a4112f;outline-offset:1px}' +
+    '.iu-chat-form button{border:0;background:#a4112f;color:#fff;border-radius:9px;padding:0 14px;cursor:pointer;font-size:14px}' +
     '.iu-chat-form button[disabled]{opacity:.55;cursor:not-allowed}' +
     '.iu-chat .iu-vh{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}' +
     '@media(max-width:520px){.iu-chat{right:10px;left:10px;width:auto;bottom:78px;height:calc(100vh - 150px)}.iu-chat-btn{right:12px;bottom:12px}}';
