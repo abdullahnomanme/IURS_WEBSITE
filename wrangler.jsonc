@@ -1,45 +1,11 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "iurs-production",
-  "main": "src/index.js",
-  "compatibility_date": "2026-08-19",
-  // "run_worker_first": true sends every request through src/index.js first.
-  // This is required so the site can add security headers, serve /robots.txt
-  // and /sitemap.xml, fill in the real website address for search engines, and
-  // serve uploaded photos. Static files are still served from ./public.
-  "assets": {
-    "directory": "./public",
-    "binding": "ASSETS",
-    "run_worker_first": true
-  },
+  "name": "iurs-website",
+  // ... অন্যান্য সেটিংস ...
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "iurs-production",
-      "database_id": "5880d1f4-b275-4ca0-b5db-ed33abb0dd09",
-      "migrations_dir": "db/migrations"
+      "database_id": "4a79ce98-329c-4838-b162-f94a42fe165a"
     }
-  ],
-  // Photo uploads from the admin dashboard would be stored in R2 (Cloudflare's
-  // file storage). R2 is OFF by default on new accounts, and a Worker cannot be
-  // published while it points at an R2 bucket that is not enabled, so the binding
-  // below is deactivated on purpose. The website is 100% functional without it —
-  // every existing photo is a normal file in ./public, and the admin dashboard
-  // simply lets you paste an image path instead of drag-and-drop uploading.
-  //
-  // deploy.ps1 turns this on for you AUTOMATICALLY the moment R2 is enabled on
-  // your account — you do not need to edit this file. (If you deploy through the
-  // GitHub/Workers Builds route instead, enable R2 in the Cloudflare dashboard
-  // and delete the two // marks in front of the three "r2_buckets" lines below.)
-  //
-  // "r2_buckets": [
-  //   { "binding": "MEDIA", "bucket_name": "iurs-media" }
-  // ],
-  // Powers the website assistant (the chat bubble). It is answered from your own
-  // database first, and the model may only rephrase those facts. If this binding
-  // is ever removed the assistant keeps working and simply quotes the database
-  // directly, so the chat never invents anything about IURS.
-  "ai": {
-    "binding": "AI"
-  }
+  ]
 }
