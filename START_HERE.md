@@ -238,12 +238,28 @@ To enable it: Cloudflare dashboard → **R2** in the left sidebar → accept the
 then double-click `DEPLOY.bat` here. The script notices R2 is available and switches
 drag-and-drop upload on by itself. You do not edit any file.
 
-**2. Disconnect the old GitHub build.** There is a second Cloudflare account still
-connected to the `IURS_WEBSITE` repository, and it emails you a failure every time it
-tries to build, because it is pointed at a Worker that no longer exists. Cloudflare
-dashboard → **Workers & Pages** → the old project → **Settings** → **Builds** →
-disconnect the repository. The live site is not affected in any way; this only stops
-the emails.
+**2. Delete the leftover `iurs` Worker.** Your Cloudflare sidebar lists two Workers:
+`iurs-website`, which is your live site, and an older empty `iurs` that nothing points at.
+Deleting the empty one just tidies the list. Cloudflare dashboard → **Workers & Pages** →
+`iurs` → **Settings** → **Delete**. Do not touch `iurs-website`.
+
+---
+
+## About that red "build failed" in the Cloudflare dashboard
+
+**Ignore it — it is out of date, and your site is not broken.** Cloudflare shows the
+result of the *last build it ran*, and the last build it ran was a re-run of an old
+version of the settings file from before the problem was fixed. That old version named
+the Worker `iurs-production` and pointed at a database that has since been deleted, so of
+course it failed — it was always going to fail, no matter how many times it is retried.
+
+The current version of the project built and published perfectly seven minutes *earlier*.
+That is what is serving `iurs.org.bd` right now. The red tile is simply the later of the
+two events on the clock, so it is the one the dashboard displays.
+
+If you want it to go green again, do not press **Retry** on the red build — retrying
+rebuilds that same old broken version and it will fail again. Instead let the next real
+change publish (or just double-click `DEPLOY.bat`), and the tile updates by itself.
 
 ---
 
