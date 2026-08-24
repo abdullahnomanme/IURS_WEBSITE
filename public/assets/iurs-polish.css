@@ -343,12 +343,17 @@ textarea:focus-visible,
 
 /* ---- Typography: Poppins is geometric, so it wants slightly tighter
    tracking at display sizes and a touch more line-height in body copy. ---- */
+/* ---- Typography: Poppins is geometric, so it wants slightly tighter
+   tracking at display sizes and a touch more line-height in body copy.
+   The tracking used to be tighter still (-.018em / -.026em); at the sizes this
+   site uses that squeezed capitals together and read as "heavy" rather than
+   "tight", which is what looked wrong on the headings. ---- */
 h1, h2, h3, .sec-title, .iu-subhead, .exec-name {
-  letter-spacing: -.018em;
+  letter-spacing: -.008em;
 }
-h1, .hero h1 { letter-spacing: -.026em; }
+h1, .hero h1 { letter-spacing: -.014em; }
 body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-.sec-label, .sec-label-inline { letter-spacing: .14em; }
+.sec-label, .sec-label-inline { letter-spacing: .1em; }
 
 /* ---- Executive committee cards ---- */
 .exec-grid { gap: 24px; }
@@ -380,10 +385,10 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .exec-photo img, .exec-photo-placeholder { border-radius: 50%; }
 .exec-card:hover .exec-photo { transform: scale(1.05) rotate(-2deg); }
-.exec-name { font-size: 16.5px; font-weight: 800; }
+.exec-name { font-size: 16.5px; font-weight: 700; }
 .exec-role {
-  display: inline-block; font-size: 11.5px; font-weight: 800;
-  letter-spacing: .05em; text-transform: uppercase;
+  display: inline-block; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
   background: rgba(164,17,47,.08); color: var(--primaryColor);
   border-radius: 999px; padding: 4px 11px; margin: 4px 0 8px;
 }
@@ -445,3 +450,54 @@ select:focus-visible, textarea:focus-visible {
   }
   .exec-card:hover, .pub-card:hover, .event-card:hover { transform: none; }
 }
+
+/* ============================================================
+   NAV DROPDOWNS — they used to vanish before the pointer arrived
+   ============================================================
+   .dropdown sits at top: calc(100% + 8px), which leaves an 8px strip between the
+   menu item and the panel that belongs to neither. Moving the mouse down crossed
+   that strip, :hover on the <li> was lost, and the panel disappeared before any
+   sub-item could be clicked. A transparent bridge over the strip keeps the <li>
+   hovered, and a short delay on the way out forgives a small overshoot.
+   Specificity is deliberately higher than a bare .dropdown, because eight pages
+   carry their own inline copy of the original rule *after* this file loads. */
+.navbar .nav-menu > li > .dropdown::before {
+  content: ''; position: absolute;
+  left: 0; right: 0; top: -12px; height: 12px;
+  background: transparent;
+}
+/* Widen the hit area sideways a little too: the panel is wider than the label,
+   so a diagonal mouse path used to leave the <li> at the corner. */
+.navbar .nav-menu > li > .dropdown {
+  transition: opacity .2s ease, visibility .2s ease, transform .2s ease;
+  transition-delay: .18s;
+}
+.navbar .nav-menu > li:hover > .dropdown,
+.navbar .nav-menu > li:focus-within > .dropdown {
+  opacity: 1; visibility: visible; transform: translateY(0);
+  transition-delay: 0s;
+}
+/* Keyboard users get the same rotation cue as mouse users. */
+.navbar .nav-menu > li:focus-within > a i { transform: rotate(180deg); }
+
+/* ============================================================
+   FLOATING BUTTONS — the assistant bubble and "back to top" collided
+   ============================================================
+   Both were pinned to the bottom-right corner, so on a phone the round arrow sat
+   directly on top of the chat bubble and whichever had the higher z-index took
+   every tap. "Back to top" now stacks above the bubble, and steps out of the way
+   entirely while the chat panel is open. */
+#scroll-top-btn { bottom: 88px; right: 20px; }
+@media (max-width: 560px) {
+  #scroll-top-btn { bottom: 80px; right: 14px; width: 40px; height: 40px; font-size: 14px; }
+}
+body:has(.iu-chat.open) #scroll-top-btn { opacity: 0; pointer-events: none; }
+
+/* ============================================================
+   FONT WEIGHT — no more faux bold
+   ============================================================
+   Poppins is loaded at 300–800 and Inter at 400–700. Any heavier request was
+   being *synthesised* by the browser, which smears the strokes sideways and is
+   exactly why some headings looked blotchy and over-heavy next to others.
+   Refusing synthesis makes the browser fall back to the real 800 cut instead. */
+html { font-synthesis-weight: none; -webkit-font-synthesis: none; }

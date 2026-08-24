@@ -87,7 +87,12 @@
   };
 
   var getJSON = function (url) {
-    return fetch(url, { headers: { accept: 'application/json' } }).then(function (r) {
+    // Cloudflare's edge had been caching /api/public/* answers for an hour, so
+    // deleted publications and unpublished notices kept coming back on the live
+    // site. The Worker now sends no-store, and this makes every request unique so
+    // a copy cached before that fix can never be served either.
+    var bust = (url.indexOf('?') === -1 ? '?' : '&') + 'v=' + Date.now();
+    return fetch(url + bust, { headers: { accept: 'application/json' }, cache: 'no-store' }).then(function (r) {
       if (!r.ok) throw new Error(url + ' -> ' + r.status);
       return r.json();
     });
@@ -277,6 +282,35 @@
           esc(r.department || '') + '</td></tr>';
       }).join('');
     }
+
+    /* Advisor panel and general members are their own sections on the page. They
+       start hidden, because an "Advisory Panel" heading over an empty grid reads
+       as a broken page — they only appear once the committee has actually added
+       people with that tier from the dashboard. */
+    var advGrid = document.getElementById('exec-advisors');
+    var advSec = document.getElementById('advisors');
+    var advisors = (session.advisors || []);
+    if (advGrid) {
+      advGrid.innerHTML = '';
+      advisors.forEach(function (r, i) { advGrid.appendChild(execCard(r, i)); });
+      reveal(advGrid.querySelectorAll('.reveal:not(.visible)'));
+    }
+    if (advSec) advSec.hidden = !advisors.length;
+
+    var memBody = document.getElementById('exec-members');
+    var memSec = document.getElementById('members');
+    var members = (session.members || []);
+    if (memBody) {
+      memBody.innerHTML = members.map(function (r, i) {
+        return '<tr><td>' + esc(r.sl_no != null ? r.sl_no : i + 1) + '</td><td>' +
+          esc(r.name || '') + '</td><td>' + esc(r.department || '') + '</td><td>' +
+          esc(r.designation || 'General Member') + '</td></tr>';
+      }).join('');
+    }
+    if (memSec) memSec.hidden = !members.length;
+    var memCount = document.getElementById('exec-members-count');
+    if (memCount) memCount.textContent = String(members.length);
+
     var p = document.getElementById('committee-lead');
     if (p && session.description) p.textContent = session.description;
     var badge = document.getElementById('committee-badge');
@@ -305,6 +339,126 @@
       wrap.hidden = false;
       sel.onchange = function () { paintCommittee(all[+sel.value] || all[0]); };
     }).catch(function (e) { console.warn('[IURS] committee kept static:', e.message); });
+  }
+
+  /* ---------------- notices.html + homepage notice panel ---------------- */
+  var LEVEL_LABEL = { urgent: 'Urgent', high: 'Important', normal: 'Notice' };
+
+  var noticeDate = function (row) {
+    var raw = row.notice_date || row.created_at || '';
+    // 'YYYY-MM-DD' and 'YYYY-MM-DD HH:MM:SS' both parse once the space becomes a T.
+    var d = new Date(String(raw).replace(' ', 'T') + (/\d{2}:\d{2}/.test(raw) ? '' : 'T00:00:00'));
+    if (isNaN(d.getTime())) return String(raw).slice(0, 10);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  function noticeItem(row) {
+    var level = LEVEL_LABEL[row.level] ? row.level : 'normal';
+    var img = safeSrc(row.image_url);
+    var file = safeSrc(row.attachment_url);
+    var link = safeSrc(row.link_url);
+    var d = document.createElement('article');
+    d.className = 'nb-item reveal';
+    d.setAttribute('data-level', level);
+    d.setAttribute('data-search', String((row.title || '') + ' ' + (row.body || '')).toLowerCase());
+    d.innerHTML =
+      '<div class="nb-stripe"></div>' +
+      '<div class="nb-body">' +
+        '<div class="nb-top">' +
+          '<span class="nb-pill">' + esc(LEVEL_LABEL[level]) + '</span>' +
+          (Number(row.pinned) ? '<span class="nb-pin"><i class="fas fa-thumbtack"></i> Pinned</span>' : '') +
+          '<span class="nb-date"><i class="far fa-calendar"></i> ' + esc(noticeDate(row)) + '</span>' +
+        '</div>' +
+        '<h3 class="nb-title">' + esc(row.title || '') + '</h3>' +
+        (row.body ? '<p class="nb-text">' + esc(row.body) + '</p>' : '') +
+        (img ? '<figure class="nb-figure"><img loading="lazy" decoding="async" alt="' +
+               esc(row.title || 'Notice image') + '" src="' + esc(img) + '"></figure>' : '') +
+        ((file || link) ? '<div class="nb-actions">' +
+          (file ? '<a class="nb-btn nb-btn-file" href="' + esc(file) + '" target="_blank" rel="noopener">' +
+                  '<i class="fas fa-file-arrow-down"></i> ' +
+                  esc(row.attachment_name || 'Download document') + '</a>' : '') +
+          (link ? '<a class="nb-btn nb-btn-link" href="' + esc(link) + '" target="_blank" rel="noopener">' +
+                  '<i class="fas fa-arrow-up-right-from-square"></i> Related link</a>' : '') +
+        '</div>' : '') +
+      '</div>';
+    return d;
+  }
+
+  function bindNoticeBoard() {
+    var board = document.getElementById('notice-board');
+    if (!board) return;
+
+    getJSON('/api/public/notices').then(function (rows) {
+      if (!Array.isArray(rows)) rows = [];
+      if (!rows.length) {
+        board.innerHTML = '<div class="iu-empty">No notices have been published yet. ' +
+          'Announcements posted from the dashboard appear here immediately.</div>';
+        return;
+      }
+      board.innerHTML = '';
+      rows.forEach(function (r) { board.appendChild(noticeItem(r)); });
+      reveal(board.querySelectorAll('.reveal:not(.visible)'));
+
+      /* Filter and search work on what is already rendered, so they stay instant
+         and keep working even if the network drops after the first load. */
+      var level = 'all';
+      var term = '';
+      var apply = function () {
+        var shown = 0;
+        var items = board.querySelectorAll('.nb-item');
+        for (var i = 0; i < items.length; i++) {
+          var okLevel = level === 'all' || items[i].getAttribute('data-level') === level;
+          var okTerm = !term || items[i].getAttribute('data-search').indexOf(term) !== -1;
+          var ok = okLevel && okTerm;
+          items[i].style.display = ok ? '' : 'none';
+          if (ok) shown++;
+        }
+        var none = document.getElementById('nb-none');
+        if (!shown && !none) {
+          none = document.createElement('div');
+          none.className = 'iu-empty';
+          none.id = 'nb-none';
+          none.textContent = 'No notice matches that filter.';
+          board.appendChild(none);
+        } else if (none) {
+          none.style.display = shown ? 'none' : '';
+        }
+      };
+
+      var buttons = document.querySelectorAll('[data-nb-filter]');
+      for (var b = 0; b < buttons.length; b++) {
+        buttons[b].addEventListener('click', function () {
+          for (var k = 0; k < buttons.length; k++) buttons[k].classList.remove('active');
+          this.classList.add('active');
+          level = this.getAttribute('data-nb-filter');
+          apply();
+        });
+      }
+      var search = document.getElementById('nb-search');
+      if (search) search.addEventListener('input', function () {
+        term = this.value.trim().toLowerCase();
+        apply();
+      });
+    }).catch(function (e) {
+      board.innerHTML = '<div class="iu-empty">The notice board could not be loaded just now. ' +
+        'Please refresh the page in a moment.</div>';
+      console.warn('[IURS] notices failed:', e.message);
+    });
+  }
+
+  /* The homepage hero panel listed four notices as hard-coded HTML, so anything
+     posted from the dashboard never showed up there. */
+  function bindHomeNotices() {
+    var list = document.querySelector('.hero-panel-card .notice-list');
+    if (!list) return;
+    getJSON('/api/public/notices').then(function (rows) {
+      if (!Array.isArray(rows) || !rows.length) return; // keep the static rows
+      list.innerHTML = rows.slice(0, 4).map(function (r) {
+        var level = LEVEL_LABEL[r.level] ? r.level : 'normal';
+        return '<div class="notice-row"><span class="ndot ' + level + '"></span>' +
+          '<span>' + esc(r.title || '') + ' — ' + esc(noticeDate(r)) + '</span></div>';
+      }).join('');
+    }).catch(function (e) { console.warn('[IURS] home notices kept static:', e.message); });
   }
 
   /* ---------------- alumni.html ---------------- */
@@ -819,6 +973,7 @@
   function start() {
     bindGallery(); bindTraining(); bindCommittee(); bindAlumni();
     bindBlog(); bindPublications(); bindJoin(); bindChat();
+    bindNoticeBoard(); bindHomeNotices();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();

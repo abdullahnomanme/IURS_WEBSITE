@@ -296,9 +296,10 @@ check('robots.txt points at the sitemap on the real hostname', rt.includes(ORIGI
 r = await hit('/sitemap.xml');
 const sm = await r.res.text();
 check('sitemap.xml is served as XML', r.status === 200 && (r.res.headers.get('content-type') || '').includes('xml'));
-check('sitemap lists all 11 public pages', (sm.match(/<url>/g) || []).length === 11, 'got ' + (sm.match(/<url>/g) || []).length);
+check('sitemap lists all 12 public pages', (sm.match(/<url>/g) || []).length === 12, 'got ' + (sm.match(/<url>/g) || []).length);
 check('sitemap includes the three new public pages',
   ['/blog.html', '/alumni.html', '/join.html'].every(p => sm.includes('<loc>' + ORIGIN + p + '</loc>')), sm.slice(0, 300));
+check('sitemap includes the notice board', sm.includes('<loc>' + ORIGIN + '/notices.html</loc>'));
 check('sitemap uses the real hostname, no invented domain', sm.includes('<loc>' + ORIGIN + '/</loc>') && !/example\.org|yourdomain|TODO/.test(sm));
 check('sitemap hides the admin and login pages', !/admin\.html|login\.html|setup\.html|dashboard\.html/.test(sm));
 r = await hit('/');

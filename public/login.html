@@ -93,7 +93,7 @@ body{margin:0;background:var(--shadeColor);color:var(--titleColor);font-family:v
 
   /* The setup page only works while the society has no admin at all. Showing the link
      after that just invites confusion, so ask the server before revealing it. */
-  fetch('/api/public/setup-status').then(function(r){return r.json()}).then(function(d){
+  fetch('/api/public/setup-status?v='+Date.now(),{cache:'no-store'}).then(function(r){return r.json()}).then(function(d){
     if(d&&d.needsSetup)document.getElementById('setupLink').hidden=false;
   }).catch(function(){});
 

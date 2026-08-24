@@ -221,8 +221,14 @@ if ($deployCode -ne 0 -and $out -notmatch 'Deployed|Current Version ID') {
 }
 
 $liveUrl = ''
-$m = [regex]::Match($out, 'https://[a-zA-Z0-9\-\.]+\.workers\.dev')
-if ($m.Success) { $liveUrl = $m.Value }
+# Prefer the society's own domain when wrangler reports it as a custom domain, so the
+# closing message names the address people actually visit rather than the workers.dev one.
+$m = [regex]::Match($out, '(?m)^\s*(iurs\.org\.bd)\s+\(custom domain\)')
+if ($m.Success) { $liveUrl = 'https://' + $m.Groups[1].Value }
+if ($liveUrl -eq '') {
+    $m = [regex]::Match($out, 'https://[a-zA-Z0-9\-\.]+\.workers\.dev')
+    if ($m.Success) { $liveUrl = $m.Value }
+}
 if ($liveUrl -eq '') {
     # A custom domain instead of a workers.dev address. Ignore the documentation and
     # dashboard links wrangler also prints, so we do not pick up the wrong address.

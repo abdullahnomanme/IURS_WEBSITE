@@ -2,6 +2,21 @@ import { GALLERY_SEED, TRAINING_SEED, COMMITTEE_SEED, EXECUTIVE_SEED, PUBLICATIO
 const SESSION_DAYS = 7;
 const UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
 const UPLOAD_TYPES = {'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'};
+/* What a notice may carry as an attachment: a document, or an image (a photographed
+   circular is the most common case of all). Word/Excel/PowerPoint files are ZIP
+   containers, so they share one signature and are stored under a generic extension —
+   the browser still opens them, and the admin sees the original file name. */
+/* Who appears in which block on the People page. "leadership" are the office
+   bearers shown as photo cards, "roster" is the numbered committee table,
+   "advisor" is the advisory panel and "member" is the general membership — each
+   one gets its own section, and moving somebody between them is a dropdown in
+   the dashboard rather than a code change. */
+const EXEC_TIERS = ['leadership','advisor','roster','member'];
+/* Two records count as the same title when they differ only in capitalisation,
+   surrounding spaces, or the flavour of apostrophe used (Word turns ' into ’ on
+   paste). SQLite has no regex, so the smart quotes are named by code point. */
+const NORM_TITLE = `replace(replace(replace(lower(trim(title)),char(8217),''),char(8216),''),'''','')`;
+const DOC_TYPES = {...UPLOAD_TYPES,'application/pdf':'pdf','application/zip':'docx','application/msword':'doc'};
 const GALLERY_CATEGORIES = ['Events','Community','Achievements','Training','Research','Campus','Documents'];
 const PUB_CATEGORIES = ['peer_reviewed','conference','working_paper','under_review'];
 const APPLICATION_STATUSES = ['pending','contacted','approved','rejected'];
@@ -59,7 +74,12 @@ function publicRecruitment(s){
   methods:String(s.methods||'').split(',').map(x=>x.trim()).filter(Boolean),
   payTo:s.payTo||'',payToLabel:s.payToLabel||''};
 }
-const json = (data,status=200,extra={}) => new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8',...extra}});
+/* Every API answer is private and must never be cached. Without this Cloudflare's edge
+   happily stored /api/auth/me for an hour: an administrator who had already changed
+   their password kept being handed the old must_change_password:1 answer, so the
+   dashboard locked itself on the Security tab again on every single visit. The same
+   stale copies made deleted publications and unpublished notices reappear. */
+const json = (data,status=200,extra={}) => new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate, max-age=0','pragma':'no-cache','vary':'Cookie',...extra}});
 const cookieOptions = maxAge => `Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
 /* Cloudflare Workers refuses a PBKDF2 iteration count above 100000: crypto.subtle
    .deriveBits throws instead of returning a key. That made every password hash and
@@ -84,7 +104,7 @@ async function ensureSchema(env){
     const ddl=[
       `CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT,iurs_id TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,role TEXT NOT NULL CHECK(role IN ('member','executive','admin')),name TEXT NOT NULL,email TEXT,department TEXT,year_level TEXT,position TEXT,phone TEXT,photo_url TEXT,status TEXT NOT NULL DEFAULT 'active',must_change_password INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,token_hash TEXT NOT NULL UNIQUE,expires_at TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE)`,
-      `CREATE TABLE IF NOT EXISTS notices (id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,body TEXT NOT NULL,level TEXT NOT NULL DEFAULT 'normal',published INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,image_url TEXT,link_url TEXT,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS notices (id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,body TEXT NOT NULL,level TEXT NOT NULL DEFAULT 'normal',published INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,image_url TEXT,link_url TEXT,attachment_url TEXT,attachment_name TEXT,pinned INTEGER NOT NULL DEFAULT 0,notice_date TEXT,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,event_date TEXT,event_time TEXT,venue TEXT,description TEXT,status TEXT NOT NULL DEFAULT 'upcoming',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,image_url TEXT,link_url TEXT,registration_url TEXT,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE TABLE IF NOT EXISTS publications (id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,authors TEXT NOT NULL,category TEXT NOT NULL,journal TEXT,publication_year INTEGER,doi TEXT,url TEXT,abstract TEXT,published_status TEXT NOT NULL DEFAULT 'published',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,featured INTEGER NOT NULL DEFAULT 0,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE TABLE IF NOT EXISTS site_stats (key TEXT PRIMARY KEY,value TEXT NOT NULL,label TEXT NOT NULL)`,
@@ -117,7 +137,28 @@ async function ensureSchema(env){
        so the index statement would run first and fail with "no such column" — which
        rejects this whole promise and makes every API call return a 500. */
     const lateIndexes=[
-      `CREATE INDEX IF NOT EXISTS idx_applications_txn ON applications(transaction_id)`
+      `CREATE INDEX IF NOT EXISTS idx_applications_txn ON applications(transaction_id)`,
+      /* The publication list once appeared twice on the page. A count-based seed
+         guard ("insert the seven papers only if the table is empty") is not atomic:
+         two Worker isolates starting at the same moment both read zero and both
+         insert, so every paper is stored twice. This index makes the seed rows
+         collide instead, so the second writer is ignored rather than duplicated.
+         NULLs stay distinct in SQLite, so rows the admin adds are unaffected. */
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_publications_seed_key ON publications(seed_key)`
+    ];
+    /* Repairs run once per cold start on data that already exists. They are all
+       no-ops on a healthy database and must run BEFORE lateIndexes, because a
+       unique index cannot be created while duplicate rows are still present. */
+    const repairs=[
+      // Collapse papers that are the same entry, keeping the oldest row so its id,
+      // admin edits and sort position survive. Titles are compared with the case and
+      // the apostrophes stripped, because the real duplicates differed only by a
+      // curly ’ versus a straight ' — grouping on lower(trim(title)) alone missed them.
+      `DELETE FROM publications WHERE id NOT IN (SELECT MIN(id) FROM publications GROUP BY ${NORM_TITLE},category)`,
+      // Same non-atomic guard seeds the committee, so the same fix applies.
+      `DELETE FROM executives WHERE id NOT IN (SELECT MIN(id) FROM executives GROUP BY session_id,lower(trim(name)),lower(trim(designation)))`,
+      `DELETE FROM notices WHERE id NOT IN (SELECT MIN(id) FROM notices GROUP BY ${NORM_TITLE},lower(trim(body)))`,
+      `DELETE FROM events WHERE id NOT IN (SELECT MIN(id) FROM events GROUP BY ${NORM_TITLE})`
     ];
     const seeds=[
       `INSERT INTO events(title,event_date,event_time,venue,description,status,image_url) SELECT 'Orientation to Research Methodology','2026-05-03','9:30 AM','IIER Building, Room 101','Keynote by Professor Mohammed Asaduzzaman, PhD. Chair: Taqy Wasif. Host: Ashfia Kaniz Fatema.','past','assets/orientation-research-methodology.jpg' WHERE NOT EXISTS (SELECT 1 FROM events)`,
@@ -134,7 +175,12 @@ async function ensureSchema(env){
     // Added columns are deliberately nullable: SQLite refuses ALTER TABLE ADD
     // COLUMN for a NOT NULL column whose default is not a constant, and
     // updated_at is always written explicitly as datetime('now') anyway.
-    const columns={notices:[['image_url','TEXT'],['link_url','TEXT'],['updated_at','TEXT']],events:[['image_url','TEXT'],['link_url','TEXT'],['registration_url','TEXT'],['updated_at','TEXT']],publications:[['featured','INTEGER NOT NULL DEFAULT 0'],['updated_at','TEXT'],['seed_key','TEXT'],['type_label','TEXT'],['sort_order','INTEGER NOT NULL DEFAULT 0']],executives:[['facebook_url','TEXT']],
+    const columns={notices:[['image_url','TEXT'],['link_url','TEXT'],['updated_at','TEXT'],
+      /* A notice is the one thing that regularly carries a PDF — a circular, a
+         results sheet, a form. attachment_url holds it (an uploaded file or a
+         pasted link) and attachment_name is what the download button should say. */
+      ['attachment_url','TEXT'],['attachment_name','TEXT'],['pinned','INTEGER NOT NULL DEFAULT 0'],['notice_date','TEXT']],
+      events:[['image_url','TEXT'],['link_url','TEXT'],['registration_url','TEXT'],['updated_at','TEXT']],publications:[['featured','INTEGER NOT NULL DEFAULT 0'],['updated_at','TEXT'],['seed_key','TEXT'],['type_label','TEXT'],['sort_order','INTEGER NOT NULL DEFAULT 0']],executives:[['facebook_url','TEXT']],
       /* Membership fee details. payment_status is kept separate from status so an
          application cannot be approved by accident before the money is checked:
          the admin has to match transaction_id against the receiving account and
@@ -145,6 +191,11 @@ async function ensureSchema(env){
       for(const [name,type] of cols) if(!have.has(name)) await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`).run();
       if(!have.has('updated_at')&&cols.some(c=>c[0]==='updated_at')) await env.DB.prepare(`UPDATE ${table} SET updated_at=created_at WHERE updated_at IS NULL`).run();
     }
+    for(const q of repairs) await env.DB.prepare(q).run();
+    /* A database written before the seed_key column existed stores the seven seeded
+       papers with seed_key NULL, so the unique index below could not recognise them
+       and a re-seed would insert a second copy. Stamp them first. */
+    for(const r of PUBLICATION_SEED) await env.DB.prepare('UPDATE publications SET seed_key=? WHERE seed_key IS NULL AND lower(trim(title))=lower(trim(?))').bind(r.seed_key,r.title).run();
     for(const q of lateIndexes) await env.DB.prepare(q).run();
     for(const q of seeds) await env.DB.prepare(q).run();
     const gc=await env.DB.prepare('SELECT COUNT(*) c FROM gallery_images').first();
@@ -160,7 +211,7 @@ async function ensureSchema(env){
     }
     // The seven research outputs already published on the site.
     const pc=await env.DB.prepare('SELECT COUNT(*) c FROM publications').first();
-    if(!pc||!pc.c){const rows=PUBLICATION_SEED.map((r,i)=>env.DB.prepare('INSERT INTO publications(seed_key,title,authors,category,type_label,journal,publication_year,doi,url,abstract,published_status,featured,sort_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(r.seed_key,r.title,r.authors,r.category,r.type_label,r.journal||null,r.publication_year||null,r.doi||null,r.url||null,r.abstract||null,'published',i<2?1:0,r.sort_order));if(rows.length) await env.DB.batch(rows)}
+    if(!pc||!pc.c){const rows=PUBLICATION_SEED.map((r,i)=>env.DB.prepare('INSERT OR IGNORE INTO publications(seed_key,title,authors,category,type_label,journal,publication_year,doi,url,abstract,published_status,featured,sort_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(r.seed_key,r.title,r.authors,r.category,r.type_label,r.journal||null,r.publication_year||null,r.doi||null,r.url||null,r.abstract||null,'published',i<2?1:0,r.sort_order));if(rows.length) await env.DB.batch(rows)}
     // Older rows used free-text categories; normalise them so the four tabs work.
     await env.DB.prepare("UPDATE publications SET category='peer_reviewed' WHERE category IN ('peer-reviewed','Peer-reviewed','peer reviewed','journal')").run();
     await env.DB.prepare("UPDATE publications SET category='conference' WHERE category IN ('Conference','conference_paper','conference paper','research','Research Paper')").run();
@@ -183,14 +234,20 @@ function sniffImage(b){const u=new Uint8Array(b),h=(...v)=>v.every((x,i)=>u[i]==
  if(u[0]===0x52&&u[1]===0x49&&u[2]===0x46&&u[3]===0x46&&u[8]===0x57&&u[9]===0x45&&u[10]===0x42&&u[11]===0x50)return 'image/webp';
  if(u[4]===0x66&&u[5]===0x74&&u[6]===0x79&&u[7]===0x70&&u[8]===0x61&&u[9]===0x76&&u[10]===0x69&&u[11]===0x66)return 'image/avif';
  return null}
-function uploadKey(url){const s=String(url||'');return s.startsWith('/uploads/')?s.slice('/uploads/'.length):null}
-// Turn a title into a clean web address piece, e.g. "Our First Workshop" -> "our-first-workshop".
+// Documents, by their real first bytes. %PDF- for PDF, "PK" for the ZIP container
+// that every modern Office file is, and the old OLE2 header for legacy .doc/.xls.
+function sniffDoc(b){const u=new Uint8Array(b),h=(...v)=>v.every((x,i)=>u[i]===x);
+ if(h(0x25,0x50,0x44,0x46,0x2D))return 'application/pdf';
+ if(h(0x50,0x4B,0x03,0x04)||h(0x50,0x4B,0x05,0x06))return 'application/zip';
+ if(h(0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1))return 'application/msword';
+ return null}
+function uploadKey(url){const s=String(url||'');return s.startsWith('/uploads/')?s.slice('/uploads/'.length):null}// Turn a title into a clean web address piece, e.g. "Our First Workshop" -> "our-first-workshop".
 function slugify(v){return cleanText(v,160).toLowerCase().replace(/[^a-z0-9\s-]/g,'').trim().replace(/[\s-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,120)}
 async function uniqueSlug(env,wanted,ignoreId){let base=slugify(wanted)||('post-'+Date.now());let slug=base;
  for(let n=2;n<200;n++){const clash=await env.DB.prepare('SELECT id FROM blog_posts WHERE slug=? AND id<>?').bind(slug,ignoreId||0).first();if(!clash)return slug;slug=base+'-'+n}
  return base+'-'+Date.now()}
 async function maybeDeleteUpload(env,url){const key=uploadKey(url);if(!key||!env.MEDIA)return;
- for(const [t,col] of [['gallery_images','image_url'],['training_sessions','image_url'],['notices','image_url'],['events','image_url'],['publications','url'],['executives','photo_url'],['alumni','photo_url'],['blog_posts','image_url']]){
+ for(const [t,col] of [['gallery_images','image_url'],['training_sessions','image_url'],['notices','image_url'],['notices','attachment_url'],['events','image_url'],['publications','url'],['executives','photo_url'],['alumni','photo_url'],['blog_posts','image_url']]){
   try{const r=await env.DB.prepare(`SELECT COUNT(*) c FROM ${t} WHERE ${col}=?`).bind(url).first();if(r&&r.c)return}catch{}}
  try{await env.MEDIA.delete(key)}catch(e){console.error('R2 delete failed',e)}}
 
@@ -326,10 +383,27 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
  if(path==='/api/admin/events'&&m==='POST'){const b=await body(req);if(!cleanText(b.title,400))return json({error:'Event title is required.'},400);await env.DB.prepare('INSERT INTO events(title,event_date,event_time,venue,description,status,image_url,link_url,registration_url) VALUES(?,?,?,?,?,?,?,?,?)').bind(cleanText(b.title,400),isoDate(b.date),cleanText(b.time,80)||null,cleanText(b.venue,300)||null,cleanText(b.description,5000)||null,['upcoming','past','cancelled'].includes(b.status)?b.status:'upcoming',cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.registrationUrl)).run();return json({ok:true})}
  if(path.startsWith('/api/admin/events/')&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req);if(!cleanText(b.title,400))return json({error:'Event title is required.'},400);await env.DB.prepare('UPDATE events SET title=?,event_date=?,event_time=?,venue=?,description=?,status=?,image_url=?,link_url=?,registration_url=?,updated_at=datetime(\'now\') WHERE id=?').bind(cleanText(b.title,400),isoDate(b.date),cleanText(b.time,80)||null,cleanText(b.venue,300)||null,cleanText(b.description,5000)||null,['upcoming','past','cancelled'].includes(b.status)?b.status:'upcoming',cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.registrationUrl),id).run();return json({ok:true})}
  if(path.startsWith('/api/admin/events/')&&m==='DELETE'){await env.DB.prepare('DELETE FROM events WHERE id=?').bind(Number(path.split('/').pop())).run();return json({ok:true})}
- if(path==='/api/admin/notices'&&m==='GET'){const r=await env.DB.prepare('SELECT * FROM notices ORDER BY published DESC,created_at DESC,id DESC').all();return json(r.results||[])}
- if(path==='/api/admin/notices'&&m==='POST'){const b=await body(req);if(!cleanText(b.title,400)||!cleanText(b.body,5000))return json({error:'Notice title and body are required.'},400);await env.DB.prepare('INSERT INTO notices(title,body,level,published,image_url,link_url) VALUES(?,?,?,?,?,?)').bind(cleanText(b.title,400),cleanText(b.body,5000),['urgent','high','normal'].includes(b.level)?b.level:'normal',b.published===false?0:1,cleanUrl(b.imageUrl),cleanUrl(b.linkUrl)).run();return json({ok:true})}
- if(path.startsWith('/api/admin/notices/')&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req);if(!cleanText(b.title,400)||!cleanText(b.body,5000))return json({error:'Notice title and body are required.'},400);await env.DB.prepare('UPDATE notices SET title=?,body=?,level=?,published=?,image_url=?,link_url=?,updated_at=datetime(\'now\') WHERE id=?').bind(cleanText(b.title,400),cleanText(b.body,5000),['urgent','high','normal'].includes(b.level)?b.level:'normal',b.published===false?0:1,cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),id).run();return json({ok:true})}
+ if(path==='/api/admin/notices'&&m==='GET'){const r=await env.DB.prepare('SELECT * FROM notices ORDER BY pinned DESC,published DESC,created_at DESC,id DESC').all();return json(r.results||[])}
+ if(path==='/api/admin/notices'&&m==='POST'){const b=await body(req);if(!cleanText(b.title,400)||!cleanText(b.body,5000))return json({error:'Notice title and body are required.'},400);await env.DB.prepare('INSERT INTO notices(title,body,level,published,image_url,link_url,attachment_url,attachment_name,pinned,notice_date) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(cleanText(b.title,400),cleanText(b.body,5000),['urgent','high','normal'].includes(b.level)?b.level:'normal',b.published===false?0:1,cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.attachmentUrl),cleanText(b.attachmentName,160)||null,b.pinned?1:0,isoDate(b.noticeDate)).run();return json({ok:true})}
+ // One-click "publish / take down" from the notice list, so putting a notice live
+ // never means re-submitting the whole form and risking a change to its text.
+ if(/^\/api\/admin\/notices\/\d+\/publish$/.test(path)&&m==='POST'){const id=Number(path.split('/')[4]),b=await body(req);await env.DB.prepare("UPDATE notices SET published=?,updated_at=datetime('now') WHERE id=?").bind(b.published?1:0,id).run();return json({ok:true,published:b.published?1:0})}
+ if(path.startsWith('/api/admin/notices/')&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req);if(!cleanText(b.title,400)||!cleanText(b.body,5000))return json({error:'Notice title and body are required.'},400);await env.DB.prepare('UPDATE notices SET title=?,body=?,level=?,published=?,image_url=?,link_url=?,attachment_url=?,attachment_name=?,pinned=?,notice_date=?,updated_at=datetime(\'now\') WHERE id=?').bind(cleanText(b.title,400),cleanText(b.body,5000),['urgent','high','normal'].includes(b.level)?b.level:'normal',b.published===false?0:1,cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.attachmentUrl),cleanText(b.attachmentName,160)||null,b.pinned?1:0,isoDate(b.noticeDate),id).run();return json({ok:true})}
  if(path.startsWith('/api/admin/notices/')&&m==='DELETE'){await env.DB.prepare('DELETE FROM notices WHERE id=?').bind(Number(path.split('/').pop())).run();return json({ok:true})}
+ /* Notices routinely carry a PDF — a circular, a results sheet, a form to fill in.
+    The file is sniffed by its real first bytes, exactly like a photo, so renaming
+    something .pdf does not get it accepted. Without R2 the admin can still paste a
+    link to a file that already lives somewhere else. */
+ if(path==='/api/admin/notices/upload'&&m==='POST'){if(!env.MEDIA)return json({error:'File storage is not connected yet. You can still attach a document by pasting a link to it in the Attachment field.',code:'no_bucket'},503);
+  let form;try{form=await req.formData()}catch{return json({error:'Could not read the uploaded file.'},400)}
+  const file=form.get('file');if(!file||typeof file==='string'||!file.arrayBuffer)return json({error:'Please choose a file to upload.'},400);
+  if(file.size>UPLOAD_MAX_BYTES)return json({error:`That file is ${(file.size/1048576).toFixed(1)} MB. Please use a file under 8 MB.`},413);
+  if(!file.size)return json({error:'That file is empty.'},400);
+  const buf=await file.arrayBuffer();const real=sniffDoc(buf.slice(0,16))||sniffImage(buf.slice(0,16));
+  if(!real||!DOC_TYPES[real])return json({error:'Only PDF, Word, Excel, PowerPoint or image files can be attached.'},415);
+  const key=`notices/${new Date().getFullYear()}/${b64u(crypto.getRandomValues(new Uint8Array(12)))}.${DOC_TYPES[real]}`;
+  try{await env.MEDIA.put(key,buf,{httpMetadata:{contentType:real,cacheControl:'public, max-age=31536000, immutable'}})}catch(e){console.error('R2 put failed',e);return json({error:'Upload failed while saving the file. Please try again.'},502)}
+  return json({ok:true,url:'/uploads/'+key,name:cleanText(file.name,160)||('attachment.'+DOC_TYPES[real]),contentType:real,bytes:file.size})}
  if(path==='/api/admin/gallery/upload'&&m==='POST'){if(!env.MEDIA)return json({error:'Photo upload storage is not connected yet. You can still add a photo by pasting an image path or link in the Image field.',code:'no_bucket'},503);
   let form;try{form=await req.formData()}catch{return json({error:'Could not read the uploaded file.'},400)}
   const file=form.get('file');if(!file||typeof file==='string'||!file.arrayBuffer)return json({error:'Please choose an image file to upload.'},400);
@@ -413,15 +487,15 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
 
  /* ---------- Executives inside a committee session ---------- */
  if(path==='/api/admin/executives'&&m==='GET'){const sid=Number(new URL(req.url).searchParams.get('session')||0);
-  const r=sid?await env.DB.prepare("SELECT * FROM executives WHERE session_id=? ORDER BY CASE tier WHEN 'leadership' THEN 0 ELSE 1 END,sort_order,id").bind(sid).all()
-             :await env.DB.prepare("SELECT * FROM executives ORDER BY session_id DESC,CASE tier WHEN 'leadership' THEN 0 ELSE 1 END,sort_order,id").all();
+  const r=sid?await env.DB.prepare("SELECT * FROM executives WHERE session_id=? ORDER BY CASE tier WHEN 'advisor' THEN 0 WHEN 'leadership' THEN 1 WHEN 'roster' THEN 2 ELSE 3 END,sort_order,id").bind(sid).all()
+             :await env.DB.prepare("SELECT * FROM executives ORDER BY session_id DESC,CASE tier WHEN 'advisor' THEN 0 WHEN 'leadership' THEN 1 WHEN 'roster' THEN 2 ELSE 3 END,sort_order,id").all();
   return json({executives:r.results||[]})}
  if(path==='/api/admin/executives'&&m==='POST'){const b=await body(req),name=cleanText(b.name,160),designation=cleanText(b.designation,160),sid=Number(b.sessionId)||0;
   if(!name||!designation)return json({error:'Name and designation are required.'},400);
   const s=await env.DB.prepare('SELECT id FROM committee_sessions WHERE id=?').bind(sid).first();
   if(!s)return json({error:'Choose which committee session this person belongs to.'},400);
   const o=await env.DB.prepare('SELECT COALESCE(MAX(sort_order),-1)+1 n FROM executives WHERE session_id=?').bind(sid).first();
-  await env.DB.prepare('INSERT INTO executives(session_id,name,designation,department,tier,photo_url,email,linkedin_url,facebook_url,sl_no,sort_order,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').bind(sid,name,designation,cleanText(b.department,200)||null,b.tier==='leadership'?'leadership':'roster',cleanUrl(b.photoUrl),cleanText(b.email,200)||null,cleanUrl(b.linkedinUrl),cleanUrl(b.facebookUrl),Number.isFinite(+b.slNo)&&b.slNo!==''?Math.trunc(+b.slNo):null,sortValue(b.sortOrder,(o&&o.n)||0),b.status==='inactive'?'inactive':'active').run();
+  await env.DB.prepare('INSERT INTO executives(session_id,name,designation,department,tier,photo_url,email,linkedin_url,facebook_url,sl_no,sort_order,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').bind(sid,name,designation,cleanText(b.department,200)||null,EXEC_TIERS.includes(b.tier)?b.tier:'roster',cleanUrl(b.photoUrl),cleanText(b.email,200)||null,cleanUrl(b.linkedinUrl),cleanUrl(b.facebookUrl),Number.isFinite(+b.slNo)&&b.slNo!==''?Math.trunc(+b.slNo):null,sortValue(b.sortOrder,(o&&o.n)||0),b.status==='inactive'?'inactive':'active').run();
   return json({ok:true})}
  if(path.match(/^\/api\/admin\/executives\/\d+$/)&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req),name=cleanText(b.name,160),designation=cleanText(b.designation,160);
   if(!name||!designation)return json({error:'Name and designation are required.'},400);
@@ -432,7 +506,7 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   const s=await env.DB.prepare('SELECT id FROM committee_sessions WHERE id=?').bind(sid).first();
   if(!s)sid=prev.session_id;
   const photo=cleanUrl(b.photoUrl);
-  await env.DB.prepare("UPDATE executives SET session_id=?,name=?,designation=?,department=?,tier=?,photo_url=?,email=?,linkedin_url=?,facebook_url=?,sl_no=?,sort_order=?,status=?,updated_at=datetime('now') WHERE id=?").bind(sid,name,designation,cleanText(b.department,200)||null,b.tier==='leadership'?'leadership':'roster',photo,cleanText(b.email,200)||null,cleanUrl(b.linkedinUrl),cleanUrl(b.facebookUrl),Number.isFinite(+b.slNo)&&b.slNo!==''?Math.trunc(+b.slNo):null,sortValue(b.sortOrder,prev.sort_order||0),b.status==='inactive'?'inactive':'active',id).run();
+  await env.DB.prepare("UPDATE executives SET session_id=?,name=?,designation=?,department=?,tier=?,photo_url=?,email=?,linkedin_url=?,facebook_url=?,sl_no=?,sort_order=?,status=?,updated_at=datetime('now') WHERE id=?").bind(sid,name,designation,cleanText(b.department,200)||null,EXEC_TIERS.includes(b.tier)?b.tier:'roster',photo,cleanText(b.email,200)||null,cleanUrl(b.linkedinUrl),cleanUrl(b.facebookUrl),Number.isFinite(+b.slNo)&&b.slNo!==''?Math.trunc(+b.slNo):null,sortValue(b.sortOrder,prev.sort_order||0),b.status==='inactive'?'inactive':'active',id).run();
   if(prev.photo_url!==photo) await maybeDeleteUpload(env,prev.photo_url);
   return json({ok:true})}
  if(path.match(/^\/api\/admin\/executives\/\d+$/)&&m==='DELETE'){const id=Number(path.split('/').pop());
@@ -590,12 +664,19 @@ async function publicApi(req,env,path){
   const rows=r.results||[];
   return json({publications:rows,peerReviewed:rows.filter(x=>x.category==='peer_reviewed'),conference:rows.filter(x=>x.category==='conference'),workingPapers:rows.filter(x=>x.category==='working_paper'),underReview:rows.filter(x=>x.category==='under_review')})}
  if(path==='/api/public/events'){const r=await env.DB.prepare('SELECT * FROM events ORDER BY CASE WHEN status=\'upcoming\' THEN 0 ELSE 1 END,event_date DESC,id DESC').all();return json(r.results||[])}
- if(path==='/api/public/notices'){const r=await env.DB.prepare('SELECT * FROM notices WHERE published=1 ORDER BY created_at DESC,id DESC').all();return json(r.results||[])}
+ if(path==='/api/public/notices'){const r=await env.DB.prepare('SELECT * FROM notices WHERE published=1 ORDER BY pinned DESC,COALESCE(notice_date,date(created_at)) DESC,created_at DESC,id DESC').all();return json(r.results||[])}
  if(path==='/api/public/gallery'){const r=await env.DB.prepare('SELECT id,category,title,caption,image_url,fit,featured FROM gallery_images WHERE published=1 ORDER BY sort_order,id').all();return json({gallery:r.results||[],categories:GALLERY_CATEGORIES})}
  if(path==='/api/public/training'){const r=await env.DB.prepare('SELECT id,title,trainer,description,date_label,image_url,link_url FROM training_sessions WHERE published=1 ORDER BY sort_order,id').all();return json({training:r.results||[]})}
  if(path==='/api/public/committee'){const sessions=(await env.DB.prepare('SELECT id,label,description,reference_note,is_current FROM committee_sessions ORDER BY is_current DESC,sort_order,label DESC').all()).results||[];
-  const people=(await env.DB.prepare("SELECT id,session_id,name,designation,department,tier,photo_url,email,linkedin_url,facebook_url,sl_no FROM executives WHERE status='active' ORDER BY CASE tier WHEN 'leadership' THEN 0 ELSE 1 END,sort_order,id").all()).results||[];
-  const pack=s=>({id:s.id,label:s.label,description:s.description,reference:s.reference_note,isCurrent:!!s.is_current,leadership:people.filter(p=>p.session_id===s.id&&p.tier==='leadership'),roster:people.filter(p=>p.session_id===s.id&&p.tier!=='leadership')});
+  const people=(await env.DB.prepare("SELECT id,session_id,name,designation,department,tier,photo_url,email,linkedin_url,facebook_url,sl_no FROM executives WHERE status='active' ORDER BY CASE tier WHEN 'advisor' THEN 0 WHEN 'leadership' THEN 1 WHEN 'roster' THEN 2 ELSE 3 END,sort_order,id").all()).results||[];
+  const pack=s=>{const mine=t=>people.filter(p=>p.session_id===s.id&&p.tier===t);
+   return {id:s.id,label:s.label,description:s.description,reference:s.reference_note,isCurrent:!!s.is_current,
+    leadership:mine('leadership'),
+    // Anything not explicitly filed elsewhere stays in the numbered committee table,
+    // which is where every existing row already sits.
+    roster:people.filter(p=>p.session_id===s.id&&p.tier!=='leadership'&&p.tier!=='advisor'&&p.tier!=='member'),
+    advisors:mine('advisor'),
+    members:mine('member')}};
   const current=sessions.find(s=>s.is_current)||sessions[0]||null;
   return json({current:current?pack(current):null,archive:sessions.filter(s=>!current||s.id!==current.id).map(pack)})}
  if(path==='/api/public/alumni'){const r=await env.DB.prepare("SELECT id,name,session_label,department,graduation_year,occupation,organization,photo_url,bio,standing FROM alumni WHERE published=1 ORDER BY sort_order,id").all();
@@ -698,7 +779,7 @@ async function chatFacts(env,q){
   add('NOTICES:',rows,r=>`- ${r.title}: ${String(r.body||'').slice(0,240)}`);
  }
  if(want('committee|executive|president|secretary|leader|who is|treasurer|designation|vice|chair|adviser|advisor|moderator')){
-  const rows=rank(await grab("SELECT e.name,e.designation,e.department,s.label FROM executives e JOIN committee_sessions s ON s.id=e.session_id WHERE s.is_current=1 AND e.status='active' ORDER BY CASE e.tier WHEN 'leadership' THEN 0 ELSE 1 END,e.sort_order LIMIT 20"),'name','designation').slice(0,12);
+  const rows=rank(await grab("SELECT e.name,e.designation,e.department,s.label FROM executives e JOIN committee_sessions s ON s.id=e.session_id WHERE s.is_current=1 AND e.status='active' ORDER BY CASE e.tier WHEN 'advisor' THEN 0 WHEN 'leadership' THEN 1 WHEN 'roster' THEN 2 ELSE 3 END,e.sort_order LIMIT 20"),'name','designation').slice(0,12);
   add('CURRENT EXECUTIVE COMMITTEE:',rows,r=>`- ${r.designation}: ${r.name}${r.department?' ('+r.department+')':''} [term ${r.label}]`);
  }
  if(want('alumni|graduate|former')){
@@ -754,7 +835,7 @@ async function chat(req,env){
 export default {async fetch(request,env,ctx){const url=new URL(request.url);try{if(url.pathname.startsWith('/api/')){await ensureSchema(env);const user=await currentUser(request,env);if(request.method==='POST'&&url.pathname==='/api/auth/login')return await login(request,env);if(request.method==='POST'&&url.pathname==='/api/auth/logout')return await logout(request,env);if(request.method==='POST'&&url.pathname==='/api/auth/change-password')return await changePassword(request,env,user);if(request.method==='POST'&&url.pathname==='/api/setup/initial-admin')return await setup(request,env);if(request.method==='GET'&&url.pathname==='/api/auth/me')return json({authenticated:!!user,user});if(url.pathname.startsWith('/api/admin/')){if(user&&user.must_change_password)return json({error:'For security, please set a new password before managing content.',code:'must_change_password'},403);return await adminApi(request,env,user,url.pathname)}if(url.pathname.startsWith('/api/public/'))return await publicApi(request,env,url.pathname);if(url.pathname==='/api/health')return json({ok:true,service:'IURS full-stack backend'});return json({error:'Not found'},404)}
 if(url.pathname.startsWith('/uploads/')){if(request.method!=='GET'&&request.method!=='HEAD')return json({error:'Method not allowed'},405);if(!env.MEDIA)return new Response('Not found',{status:404});let key;try{key=decodeURIComponent(url.pathname.slice(9))}catch{return new Response('Not found',{status:404})}if(!key||key.includes('..')||key.startsWith('/'))return new Response('Not found',{status:404});const obj=await env.MEDIA.get(key);if(!obj)return new Response('Not found',{status:404});const uh=new Headers();obj.writeHttpMetadata(uh);uh.set('etag',obj.httpEtag);uh.set('Cache-Control','public, max-age=31536000, immutable');uh.set('X-Content-Type-Options','nosniff');return new Response(request.method==='HEAD'?null:obj.body,{headers:uh})}
 if(url.pathname==='/robots.txt')return new Response(`User-agent: *\nAllow: /\nDisallow: /admin.html\nDisallow: /dashboard.html\nDisallow: /login.html\nDisallow: /setup.html\nDisallow: /api/\n\nSitemap: ${url.origin}/sitemap.xml\n`,{headers:{'content-type':'text/plain; charset=utf-8','cache-control':'public, max-age=86400'}});
-if(url.pathname==='/sitemap.xml'){const pages=['/','/about.html','/publications.html','/blog.html','/events.html','/training-session.html','/gallery.html','/executive-committee.html','/alumni.html','/join.html','/contact.html'];return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map(p=>`  <url><loc>${url.origin}${p}</loc><changefreq>${p==='/'?'weekly':'monthly'}</changefreq><priority>${p==='/'?'1.0':'0.7'}</priority></url>`).join('\n')}\n</urlset>\n`,{headers:{'content-type':'application/xml; charset=utf-8','cache-control':'public, max-age=86400'}})}
+if(url.pathname==='/sitemap.xml'){const pages=['/','/about.html','/notices.html','/publications.html','/blog.html','/events.html','/training-session.html','/gallery.html','/executive-committee.html','/alumni.html','/join.html','/contact.html'];return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map(p=>`  <url><loc>${url.origin}${p}</loc><changefreq>${p==='/'?'weekly':'monthly'}</changefreq><priority>${p==='/'?'1.0':'0.7'}</priority></url>`).join('\n')}\n</urlset>\n`,{headers:{'content-type':'application/xml; charset=utf-8','cache-control':'public, max-age=86400'}})}
 const asset=await env.ASSETS.fetch(request);const h=new Headers(asset.headers);h.set('X-Content-Type-Options','nosniff');h.set('Referrer-Policy','strict-origin-when-cross-origin');h.set('X-Frame-Options','SAMEORIGIN');const out=new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers:h});
 // Search engines and social previews need FULL urls. The pages carry data-abs="/page.html"
 // and we fill in the real hostname here, so no domain is ever hard-coded in the files.

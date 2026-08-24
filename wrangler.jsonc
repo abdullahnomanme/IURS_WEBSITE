@@ -1,8 +1,27 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "iurs",
+  // Must stay "iurs-website": that is the Worker the GitHub repository is connected
+  // to in the Cloudflare dashboard, and Workers Builds refuses to publish under any
+  // other name. Renaming it here silently creates a second, domain-less Worker.
+  "name": "iurs-website",
   "main": "src/index.js",
   "compatibility_date": "2026-08-19",
+  // The society's own domain. Both of these are Cloudflare "custom domains", so
+  // Cloudflare creates and keeps the DNS records itself — there is nothing to add
+  // by hand. They only start answering once iurs.org.bd's nameservers at the
+  // registrar are switched to the two Cloudflare gave you; until then the site
+  // stays reachable on iurs.abdullahnoman-me.workers.dev, which keeps working
+  // afterwards too.
+  "routes": [
+    { "pattern": "iurs.org.bd", "custom_domain": true },
+    { "pattern": "www.iurs.org.bd", "custom_domain": true }
+  ],
+  // Declaring "routes" turns the free iurs.abdullahnoman-me.workers.dev address
+  // OFF by default, which would take the site offline for as long as the domain's
+  // nameservers are still switching over. Keep it on: it costs nothing and it is
+  // the address that works today.
+  "workers_dev": true,
+  "preview_urls": true,
   // "run_worker_first": true sends every request through src/index.js first.
   // This is required so the site can add security headers, serve /robots.txt
   // and /sitemap.xml, fill in the real website address for search engines, and
@@ -16,7 +35,7 @@
     {
       "binding": "DB",
       "database_name": "iurs-production",
-      "database_id": "5880d1f4-b275-4ca0-b5db-ed33abb0dd09",
+      "database_id": "4a79ce98-329c-4838-b162-f94a42fe165a",
       "migrations_dir": "db/migrations"
     }
   ],

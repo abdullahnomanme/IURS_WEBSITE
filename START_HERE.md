@@ -6,38 +6,40 @@ Written for you, not for a programmer. Nothing here requires you to understand c
 
 ## The short version
 
-The website was broken in a way that would have shown a blank error page to every
-visitor. That is fixed. The website now also has a working control panel, so you can
-add notices, upload gallery photos, and manage members yourself without ever opening
-a code file.
+**The website is live at https://iurs.org.bd** (and `https://www.iurs.org.bd`). It also
+stays reachable at `https://iurs-website.abdullahnoman-me.workers.dev`, which is useful
+if the domain ever has a DNS problem.
 
-**The site is now live and nothing is left to do.** It is published at
-https://iurs.abdullahnoman-me.workers.dev and the control panel works. You can log in
-straight away — see "How to log in" below.
+It has a working control panel, so you can post notices, upload gallery photos and manage
+members yourself without ever opening a code file. Everything is deployed and tested.
 
-## How the site gets updated now
-
-This GitHub repository is connected to Cloudflare Workers Builds. **Anything pushed to
-the `main` branch publishes itself automatically** — there is no command to run and
-`DEPLOY.bat` is no longer needed for ordinary updates.
-
-If a push ever contains a mistake that stops the site from building, Cloudflare keeps
-the last working version online instead of publishing the broken one, so the website
-cannot go down that way.
-
-`DEPLOY.bat` still works and is still safe to run. It is only useful now if you ever
-need to publish from your own computer without going through GitHub.
-
-## How to log in
-
-Go to https://iurs.abdullahnoman-me.workers.dev/login.html and type your **IURS ID**
-(`IURS26`) in the first box — an IURS ID, not an email address — and your password
-below it. Change the password whenever you like from the **Security** tab inside the
-control panel.
+To publish a change later: double-click **`DEPLOY.bat`**. That is the whole process.
 
 ---
 
-## The one serious problem that was found
+## The bug that made the dashboard unusable — and why it looked unfixable
+
+For a while, changing your password did nothing: you would set a new one, and on the next
+visit the dashboard threw you straight back onto the **Security** tab with every other tab
+locked. Changing it again made no difference.
+
+The password change had been working perfectly the whole time. The problem was that
+Cloudflare's edge network had **saved a copy of the dashboard's answer** to the question
+"who is logged in, and do they still need to change their password?" — and it kept handing
+back the hour-old copy that said *yes, still needs to change it*. The database said the
+opposite. Nothing in the login code was wrong; the browser was simply never being told the
+truth.
+
+The same stale copies were behind two other things you reported: publications you had
+already de-duplicated coming back, and notices not appearing after you published them.
+
+Every answer the site gives about your data is now explicitly marked "never store this",
+and the dashboard adds a unique marker to each request so a saved copy can never be
+matched and reused. That is one root cause behind three separate symptoms.
+
+---
+
+## The one serious problem that was found earlier
 
 A single missing comma in the website's main program file meant the whole site
 answered every request with an error. Not the homepage only — everything. This is the
@@ -92,6 +94,36 @@ No photo was lost and no image link is broken.
 
 ## What is new
 
+**A dedicated notice board at `/notices.html`.** Notices used to live only as four fixed
+lines in the homepage panel, and "View all updates" sent visitors to the events page.
+There is now a real notice page: newest first, pinned notices held at the top, coloured
+badges for Urgent and Important, a search box and filter buttons. The homepage panel and
+the page both read the same live list, so posting one notice updates both.
+
+Each notice can carry **all three** of the things you asked for at once:
+
+- **a document** — PDF, Word, Excel, PowerPoint or an image. It appears as a download
+  button on the notice.
+- **a picture** — shown inside the notice itself.
+- **a related link** — a registration form, a results page, a Facebook post.
+
+In the control panel's **Notices** tab you set the title, the priority, the date, the text,
+and tick **Pin to the top** if it should stay first. **Publish** / **Unpublish** buttons on
+each notice in the register take it off the public page without deleting it.
+
+**Advisor Panel and General Members now have real pages.** The *People* menu had three
+items that all pointed at the same page, so Advisor Panel and General Members were
+unreachable. They are now their own sections on the executive committee page, each with
+its own web address, and the *People* menu points at them properly. In the control panel,
+**Placement** on an executive now offers *Advisor Panel* and *General Members* alongside
+Leadership and Roster. A section only appears on the public page once you have put someone
+in it, so nothing shows up empty.
+
+**The menus stop vanishing.** There was an 8-pixel gap between a menu item and its
+dropdown; moving the mouse across it closed the menu before you could reach anything. The
+gap is bridged, and the menu now waits a moment before closing, so it behaves the way you
+expect. It also opens for keyboard users pressing Tab.
+
 **A control panel at `/admin.html`** where you can manage, without code:
 
 - **Notices** — add, edit, publish or unpublish
@@ -141,8 +173,24 @@ when you update them rather than needing a code change.
   visitor at your email address. It cannot invent an award, a number, a date or a name.
   Nothing about it lives in the page code that visitors can read.
 
+**Fonts.** Several headings asked for a weight the font does not actually contain, so the
+browser was faking it by smearing the letters sideways — that is the uneven, over-bold look
+you noticed. All 55 of those places now ask for a weight that really exists, letter spacing
+was loosened slightly, and faking is switched off outright so it cannot come back.
+
+**The two floating buttons no longer overlap on a phone.** The "back to top" arrow and the
+chat bubble were sitting in the same corner. The arrow is now stacked above the bubble, and
+it hides itself entirely while the chat panel is open.
+
+**Duplicate publications.** Twelve records described seven papers. Most differed only in
+capitalisation, but one pair was identical except that one used a curly apostrophe in
+*Islamic University's* and the other a straight one — which is why earlier de-duplication
+kept missing it. Five records were removed, seven remain, and the comparison now ignores
+capitalisation, stray spaces **and** the flavour of apostrophe, so the same thing cannot
+creep back in.
+
 **Search engines.** The site now provides the two files Google looks for
-(`robots.txt` and `sitemap.xml`), listing your 11 public pages and deliberately hiding
+(`robots.txt` and `sitemap.xml`), listing your 12 public pages and deliberately hiding
 the login, setup and admin pages. Link previews on Facebook and WhatsApp will show the
 correct title and picture.
 
@@ -153,8 +201,8 @@ rejected unless it really is an image, whatever the file is named. Maximum size 
 
 ## What was tested
 
-There are 287 automated checks covering the pages, the control panel, every security
-boundary, and the deployment script itself. All 287 pass. Specifically confirmed:
+There are 356 automated checks covering the pages, the control panel, every security
+boundary, and the deployment script itself. All 356 pass. Specifically confirmed:
 
 - A visitor who is not logged in cannot read or change anything in the control panel
 - A member cannot reach executive pages or admin pages
@@ -175,80 +223,55 @@ boundary, and the deployment script itself. All 287 pass. Specifically confirmed
 
 ## What you need to do
 
-> **Already live?** The site is deployed at `https://iurs.abdullahnoman-me.workers.dev`
-> and the `IURS26` administrator account already exists, so Steps 1–4 below are only
-> for setting the project up somewhere new. To publish a change to the live site, push
-> to `main` (Workers Builds deploys it) or run `npx wrangler deploy`.
+**Nothing to get the site online — it is already live at https://iurs.org.bd.**
 
-**Step 1 — install Node.js, once.** Go to https://nodejs.org and click the big **LTS**
-button. Accept the defaults. This is a one-time thing.
+There are only two optional things left, and both are one click each in the Cloudflare
+dashboard. Neither one breaks anything if you never do it.
 
-**Step 2 — double-click `DEPLOY.bat` in this folder.**
+**1. Turn on R2 to get drag-and-drop uploads.** R2 is Cloudflare's file storage, and new
+accounts have it switched off. Cloudflare does not allow it to be switched on from a
+script — it has to be a click in the dashboard. Until then, the control panel still lets
+you attach a document or a picture by pasting a link to it (a Google Drive share link
+works fine), and every photo already on the site is a normal file that is unaffected.
 
-That is the whole deployment. The script signs you in to Cloudflare in your browser,
-connects your existing `iurs-production` database, creates the photo storage, updates
-the database tables, publishes the site, **and creates your administrator account for
-you.** You do not need to open the setup page and you do not need to type any command.
+To enable it: Cloudflare dashboard → **R2** in the left sidebar → accept the free tier →
+then double-click `DEPLOY.bat` here. The script notices R2 is available and switches
+drag-and-drop upload on by itself. You do not edit any file.
 
-(`DEPLOY.bat` just runs `deploy.ps1` for you. It exists because Windows often refuses to
-run PowerShell scripts when you right-click them. If you prefer, right-clicking
-`deploy.ps1` → "Run with PowerShell" does exactly the same thing.
-`README_NO_CODE_DEPLOY.md` also has a GitHub route that needs no terminal at all.)
-
-**Step 3 — copy the temporary password it prints.** At the end the script shows:
-
-| | |
-|---|---|
-| IURS ID | `IURS26` |
-| Password | a strong random password, shown **once** |
-
-That password is generated on your own computer at that moment. It is not written into
-any file in this project, not stored in readable form anywhere, and not on GitHub — so
-copy it before closing the window. The account is `Abdullah Al Noman`, `Office Secretary`,
-with administrator rights.
-
-**Step 4 — log in at `/login`.** Type `IURS26` in the **IURS ID** box (not an email
-address) and the temporary password below it. The control panel then opens straight on
-the **Security** tab with every other tab locked, and asks you to set your own password:
-type the temporary one as "Current Password", choose a new one of at least 10 characters,
-and the moment you save it the temporary password stops working and the whole dashboard
-unlocks. All your existing content — 32 gallery photos, 33 executive committee members,
-7 publications and 6 training sessions — is already there, ready to edit.
-
-That is all. Steps 1–4 take about ten minutes, most of it waiting for the Node.js
-installer.
-
-If you ever run `deploy.ps1` again it will *not* create a second administrator and will
-*not* change your password — it just republishes the site.
+**2. Disconnect the old GitHub build.** There is a second Cloudflare account still
+connected to the `IURS_WEBSITE` repository, and it emails you a failure every time it
+tries to build, because it is pointed at a Worker that no longer exists. Cloudflare
+dashboard → **Workers & Pages** → the old project → **Settings** → **Builds** →
+disconnect the repository. The live site is not affected in any way; this only stops
+the emails.
 
 ---
 
-## Running member recruitment
+## Publishing a change later
 
-The public **Join IURS** form is closed by default and is controlled entirely from the
-dashboard's **Recruitment Window** tab. Nothing here needs a code change.
+Double-click **`DEPLOY.bat`**. It signs you in to Cloudflare in your browser if needed,
+applies any database changes, and publishes the current contents of this folder to
+`iurs.org.bd`. It never deletes your data and it is safe to run as often as you like.
 
-1. **Open the intake.** Tick *Recruitment is open*. Optionally set *Opens on* / *Closes
-   on* — inside those dates the form works, outside them it closes on its own, so you can
-   set an intake up in advance and forget about it. Leaving both blank means the switch
-   alone decides.
-2. **Set the fee.** Fee, currency, the note under it, the payment methods (comma
-   separated) and the bKash/Nagad number to pay to. Untick *Require a membership fee* for
-   a free intake and the payment fields disappear from the public form.
-3. **Applications arrive with `payment_status = unverified`.** The transaction ID has to
-   be unique — a second application quoting the same one is refused.
-4. **Verify the money, then approve.** On the **Join Applications** tab, match the
-   transaction ID against the receiving account and press *Verify payment*. Trying to
-   approve an application whose payment is still unverified is refused by the server, not
-   just hidden in the interface — so it cannot be done by accident or by calling the API
-   directly.
-5. **Export.** *Download Excel (.xlsx)* and *Download CSV* honour whatever status,
-   payment and search filters are on screen. The workbook is a real OOXML file with a
-   frozen, filterable header row, so Excel and Google Sheets both open it directly.
+(`DEPLOY.bat` just runs `deploy.ps1` for you. It exists because Windows often refuses to
+run PowerShell scripts when you right-click them. If you prefer, right-clicking
+`deploy.ps1` → "Run with PowerShell" does exactly the same thing.)
 
-When the window is closed the Join page shows your closed message and a link to the
-Facebook page instead of the form, and the server refuses every submission — posting to
-the API by hand does not get around it.
+---
+
+## Logging in
+
+Go to https://iurs.org.bd/login.html and type **`IURS26`** in the **IURS ID** box — not an
+email address — with the password you set yourself. The account is `Abdullah Al Noman`,
+`Office Secretary`, with administrator rights.
+
+Your password is your own. It is not written in any file in this project, not stored in
+readable form anywhere, and not on GitHub — which also means nobody, including me, can
+recover it for you. If it is ever lost, `deploy.ps1` can issue a fresh temporary one.
+
+The dashboard opens on the Members tab with everything unlocked. All your content — 32
+gallery photos, 33 executive committee members, 7 publications, 6 training sessions and
+your notices — is already there, ready to edit.
 
 ---
 
@@ -258,11 +281,13 @@ Nothing here needs setting up by hand. `deploy.ps1` does all of it.
 
 | What | Name | Already exists? |
 |---|---|---|
+| Worker (the site itself) | `iurs-website` | Yes — live, on `iurs.org.bd` |
+| Domain | `iurs.org.bd` + `www.iurs.org.bd` | Yes — both attached as custom domains |
 | Database | `iurs-production` | Yes — your existing one, reused |
-| Photo storage | `iurs-media` | Optional — only for drag-and-drop upload; `deploy.ps1` switches it on by itself if R2 is enabled on your account |
+| Photo storage | `iurs-media` | Optional — only for drag-and-drop upload; `deploy.ps1` switches it on by itself once R2 is enabled on your account |
 | Website files | the `public` folder | Yes |
-| Assistant model | Cloudflare Workers AI | Switched on by `deploy.ps1` |
-| Administrator account | `IURS26` | Created by `deploy.ps1` |
+| Assistant model | Cloudflare Workers AI | On |
+| Administrator account | `IURS26` | Yes — password set by you |
 
 No password, API token or secret is stored anywhere in this project. If you ever put
 this folder on GitHub, there is nothing sensitive in it.
