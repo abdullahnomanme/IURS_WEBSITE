@@ -197,12 +197,41 @@ correct title and picture.
 **Photo uploads are checked properly.** An uploaded file is examined byte by byte and
 rejected unless it really is an image, whatever the file is named. Maximum size 8 MB.
 
+**Executive member photos now actually save — and the panel was rebuilt around them.**
+Adding a photo to an executive used to fail silently: the panel said "Saved." and then the
+page showed initials in a coloured circle instead of the picture. Three separate faults
+were stacked on top of each other, and all three are fixed.
+
+- Upload no longer needs R2. A picture is stored in the database when R2 is off, and the
+  browser shrinks it first, so a photo straight off a phone goes through.
+- Ordinary filenames are accepted. A name with a space, a bracket or Bengali letters —
+  `Team Photo (2).jpg` — used to be thrown away silently. It is now escaped and kept.
+- The public page draws a photo from wherever it is stored. It previously only drew ones
+  under `assets/` or `uploads/` and quietly ignored the rest.
+
+If a photo address truly cannot be used, the panel now says so instead of reporting
+success and losing it.
+
+The **Executive Committee** tab itself is reorganised into four labelled steps —
+*Who this is*, *Photo*, *Where they appear*, *Contact* — so it is obvious what is required
+and what is optional. The photo box takes a dragged picture and shows a preview before you
+save. The header counts how many people are in the current view, and each person's card
+carries small badges showing their placement and whether they are hidden. Two things were
+removed: the **SL number** box, which had to be typed by hand and was the reason the public
+roster started counting at 5 instead of 1, and a long placement hint that explained
+something the labels now say by themselves. The roster numbers itself 1, 2, 3… and stays
+correct however people are added or removed.
+
+**The "back to top" arrow was buried under the chat bubble.** Both were pinned to the same
+corner, and the bubble sat on top, so the arrow could not be seen or tapped. The arrow now
+sits directly above the bubble and steps out of the way while the chat panel is open.
+
 ---
 
 ## What was tested
 
-There are 356 automated checks covering the pages, the control panel, every security
-boundary, and the deployment script itself. All 356 pass. Specifically confirmed:
+There are 382 automated checks covering the pages, the control panel, every security
+boundary, and the deployment script itself. All 382 pass. Specifically confirmed:
 
 - A visitor who is not logged in cannot read or change anything in the control panel
 - A member cannot reach executive pages or admin pages
@@ -228,20 +257,27 @@ boundary, and the deployment script itself. All 356 pass. Specifically confirmed
 There are only two optional things left, and both are one click each in the Cloudflare
 dashboard. Neither one breaks anything if you never do it.
 
-**1. Turn on R2 to get drag-and-drop uploads.** R2 is Cloudflare's file storage, and new
-accounts have it switched off. Cloudflare does not allow it to be switched on from a
-script — it has to be a click in the dashboard. Until then, the control panel still lets
-you attach a document or a picture by pasting a link to it (a Google Drive share link
-works fine), and every photo already on the site is a normal file that is unaffected.
+**1. Turn on R2 to lift the photo size limit.** Drag-and-drop upload **works right now**,
+without R2. Photos are kept in the database instead, and the control panel shrinks a
+picture in your browser before sending it, so an ordinary phone photo simply works.
 
-To enable it: Cloudflare dashboard → **R2** in the left sidebar → accept the free tier →
-then double-click `DEPLOY.bat` here. The script notices R2 is available and switches
-drag-and-drop upload on by itself. You do not edit any file.
+The one limit is that a single file has to end up under about **900 KB** once shrunk.
+Almost every photograph does. A very large scan or a PDF may not, and the panel will say
+so in plain words rather than failing quietly.
 
-**2. Delete the leftover `iurs` Worker.** Your Cloudflare sidebar lists two Workers:
-`iurs-website`, which is your live site, and an older empty `iurs` that nothing points at.
-Deleting the empty one just tidies the list. Cloudflare dashboard → **Workers & Pages** →
-`iurs` → **Settings** → **Delete**. Do not touch `iurs-website`.
+R2 is Cloudflare's file storage, and new accounts have it switched off. Turning it on
+removes that 900 KB limit (the ceiling becomes 8 MB) and is worth doing if you upload
+documents. Cloudflare does not allow it to be switched on from a script — it has to be a
+click in the dashboard: Cloudflare dashboard → **R2** in the left sidebar → accept the
+free tier → then double-click `DEPLOY.bat` here. The script notices R2 is available and
+starts using it by itself. You do not edit any file, and photos uploaded before you
+switch it on keep working exactly as they are.
+
+**2. Tidy the `iurs` entry in your sidebar.** Your Cloudflare sidebar shows `iurs-website`,
+which is your live site, and sometimes also plain `iurs`. There is no second Worker — the
+`iurs` line is only a **Recents** shortcut left over from an old visit, so there is nothing
+to delete and nothing is wrong. It disappears on its own as you use the dashboard. Do not
+go looking for a Worker called `iurs` to remove, and do not touch `iurs-website`.
 
 ---
 
@@ -257,9 +293,19 @@ The current version of the project built and published perfectly seven minutes *
 That is what is serving `iurs.org.bd` right now. The red tile is simply the later of the
 two events on the clock, so it is the one the dashboard displays.
 
-If you want it to go green again, do not press **Retry** on the red build — retrying
-rebuilds that same old broken version and it will fail again. Instead let the next real
-change publish (or just double-click `DEPLOY.bat`), and the tile updates by itself.
+If you want it to go green again, do not press **Retry** on the red build — **Retry rebuilds
+that same old commit**, not your latest work, so it fails again every single time and
+overwrites the good result that came before it. That is the whole reason the red kept
+coming back.
+
+Two different things are worth separating here, because they are easy to mix up:
+
+- **`DEPLOY.bat`** publishes straight to Cloudflare. It updates the live site immediately,
+  but it does not create a build, so the red tile in the **Builds** list stays as it is.
+- **Pushing to GitHub** is what starts a new build. Only that replaces the tile.
+
+So the red tile disappears the next time a change is pushed to GitHub — which has now been
+done, so the newest entry in that list is a green one from the current code.
 
 ---
 
@@ -300,7 +346,7 @@ Nothing here needs setting up by hand. `deploy.ps1` does all of it.
 | Worker (the site itself) | `iurs-website` | Yes — live, on `iurs.org.bd` |
 | Domain | `iurs.org.bd` + `www.iurs.org.bd` | Yes — both attached as custom domains |
 | Database | `iurs-production` | Yes — your existing one, reused |
-| Photo storage | `iurs-media` | Optional — only for drag-and-drop upload; `deploy.ps1` switches it on by itself once R2 is enabled on your account |
+| Photo storage | `iurs-media` | Optional — uploads work without it; enabling R2 raises the per-file limit from ~900 KB to 8 MB. `deploy.ps1` starts using it by itself once R2 is on |
 | Website files | the `public` folder | Yes |
 | Assistant model | Cloudflare Workers AI | On |
 | Administrator account | `IURS26` | Yes — password set by you |
@@ -309,11 +355,14 @@ No password, API token or secret is stored anywhere in this project. If you ever
 this folder on GitHub, there is nothing sensitive in it.
 
 **About photo storage (R2).** New Cloudflare accounts have R2 switched off, and that is
-completely fine — the website does not need it. Every photo already on your site is a
-normal file, and in the dashboard you can always add a photo by pasting its image path.
-Drag-and-drop *upload* is the only thing R2 adds. If you want it, open the Cloudflare
-dashboard once, turn on R2 (it has a free tier), and run `DEPLOY.bat` again — the script
-detects it and enables upload automatically. You never edit any file to do this.
+completely fine — drag-and-drop upload works anyway. When R2 is off, a picture is stored
+in the database instead, and the control panel shrinks it in your browser first so an
+ordinary phone photo goes through without you doing anything. The only limit is that one
+file has to finish under about 900 KB; the panel tells you plainly when something is too
+big instead of pretending it saved. Turning R2 on raises that ceiling to 8 MB — open the
+Cloudflare dashboard once, enable R2 (it has a free tier), and run `DEPLOY.bat` again. The
+script detects it and starts using it automatically. You never edit any file to do this,
+and pictures uploaded beforehand keep working unchanged.
 
 If Workers AI is ever unavailable on your plan, the assistant does not break — it simply
 quotes your database directly instead of rephrasing it. Either way it cannot make

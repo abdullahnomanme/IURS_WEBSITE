@@ -77,13 +77,18 @@
     });
   };
 
-  // Only allow same-origin image paths / absolute http(s) URLs.
+  // Only allow same-origin image paths / absolute http(s) URLs. Anything with a scheme
+  // of its own (javascript:, data:) is refused. The old version only accepted paths that
+  // began with assets/ or uploads/, which meant a picture stored anywhere else was saved
+  // in the database and then silently never drawn — the page just showed initials.
   var safeSrc = function (v) {
     var s = String(v || '').trim();
     if (!s) return '';
     if (/^https?:\/\//i.test(s)) return s;
-    if (/^(assets|uploads)\//.test(s) || /^\/(assets|uploads)\//.test(s)) return s;
-    return '';
+    if (/^\/\//.test(s) || /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(s)) return '';
+    if (s.indexOf('..') !== -1 || s.indexOf('\\') !== -1) return '';
+    if (/[\u0000-\u001f<>"'`]/.test(s)) return '';
+    return s;
   };
 
   var getJSON = function (url) {

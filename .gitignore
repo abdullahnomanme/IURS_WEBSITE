@@ -10,3 +10,6 @@ wrangler.deploy.jsonc
 # generated copies of the Worker used only by the tests
 tests/index.mjs
 tests/seed.js
+
+# local editor / dev-server configuration, not part of the site
+.claude/

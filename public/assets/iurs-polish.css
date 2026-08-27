@@ -483,14 +483,27 @@ select:focus-visible, textarea:focus-visible {
 /* ============================================================
    FLOATING BUTTONS — the assistant bubble and "back to top" collided
    ============================================================
-   Both were pinned to the bottom-right corner, so on a phone the round arrow sat
-   directly on top of the chat bubble and whichever had the higher z-index took
-   every tap. "Back to top" now stacks above the bubble, and steps out of the way
-   entirely while the chat panel is open. */
-#scroll-top-btn { bottom: 88px; right: 20px; }
-@media (max-width: 560px) {
-  #scroll-top-btn { bottom: 80px; right: 14px; width: 40px; height: 40px; font-size: 14px; }
+   Both were pinned to the bottom-right corner, so the round arrow sat directly on
+   top of the chat bubble and whichever had the higher z-index took every tap. The
+   bubble won (z-index 9998 against 999), so the arrow was completely buried.
+
+   The selectors below are written as `body #scroll-top-btn` on purpose. Eight of
+   the twelve pages carry their own `#scroll-top-btn { bottom: 26px; right: 26px }`
+   in an inline <style> that the browser reads *after* this file, and with equal
+   specificity the later rule wins — which is exactly why an earlier attempt at
+   this fix appeared to do nothing on those pages. Adding `body` lifts the
+   specificity just enough to win no matter where the file sits in the head.
+
+   Geometry: the bubble is 56px at right/bottom 18px, so its centre line is 46px
+   in from the right and its top edge is 74px up. The 44px arrow is placed to
+   share that centre line (46 − 22 = 24px) and to clear the top edge by 12px. */
+body #scroll-top-btn { bottom: 86px; right: 24px; }
+/* 520px is the width at which the bubble itself moves, so both must switch
+   together or they drift out of line in the gap between two breakpoints. */
+@media (max-width: 520px) {
+  body #scroll-top-btn { bottom: 80px; right: 20px; width: 40px; height: 40px; font-size: 14px; }
 }
+/* While the panel is open it fills this whole column, so the arrow steps aside. */
 body:has(.iu-chat.open) #scroll-top-btn { opacity: 0; pointer-events: none; }
 
 /* ============================================================

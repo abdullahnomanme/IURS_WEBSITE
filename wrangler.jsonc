@@ -39,15 +39,20 @@
       "migrations_dir": "db/migrations"
     }
   ],
-  // Photo uploads from the admin dashboard would be stored in R2 (Cloudflare's
-  // file storage). R2 is OFF by default on new accounts, and a Worker cannot be
-  // published while it points at an R2 bucket that is not enabled, so the binding
-  // below is deactivated on purpose. The website is 100% functional without it —
-  // every existing photo is a normal file in ./public, and the admin dashboard
-  // simply lets you paste an image path instead of drag-and-drop uploading.
+  // Photo uploads from the admin dashboard are stored in R2 (Cloudflare's file
+  // storage) when it is available. R2 is OFF by default on new accounts, and a
+  // Worker cannot be published while it points at an R2 bucket that is not
+  // enabled, so the binding below is deactivated on purpose.
+  //
+  // Drag-and-drop upload works either way. With the binding off, a file is kept
+  // in D1 instead (the media_blobs table) and served from the same /uploads/...
+  // address, so nothing about the pages changes. The only difference is size: a
+  // single file has to stay under ~900 KB without R2 versus 8 MB with it, and the
+  // dashboard shrinks pictures in the browser first so ordinary photos fit.
   //
   // deploy.ps1 turns this on for you AUTOMATICALLY the moment R2 is enabled on
-  // your account — you do not need to edit this file. (If you deploy through the
+  // your account — you do not need to edit this file. Files already uploaded to
+  // D1 keep being served after the switch. (If you deploy through the
   // GitHub/Workers Builds route instead, enable R2 in the Cloudflare dashboard
   // and delete the two // marks in front of the three "r2_buckets" lines below.)
   //

@@ -5,7 +5,10 @@ import { DatabaseSync } from 'node:sqlite';
 import worker from './index.mjs';
 
 const db = new DatabaseSync(':memory:');
-const norm = a => a.map(v => v === true ? 1 : v === false ? 0 : v === undefined ? null : v);
+// D1 accepts an ArrayBuffer for a BLOB column; node:sqlite wants a view over one. Convert
+// here so the uploaded-photo path is tested with the same value the Worker really binds.
+const norm = a => a.map(v => v === true ? 1 : v === false ? 0 : v === undefined ? null
+  : (v instanceof ArrayBuffer ? new Uint8Array(v) : v));
 
 function prepare(sql) {
   let args = [];
@@ -202,6 +205,55 @@ check('uploads are read-only (DELETE refused)', r.status === 405, 'got ' + r.sta
 r = await hit('/uploads/gallery/nope.png');
 check('missing upload returns 404 not 500', r.status === 404);
 
+section('8b. Photo upload with R2 switched off');
+/* R2 has to be enabled by hand in the Cloudflare dashboard and this account has not done
+   it, so for months every drag-and-drop upload answered 503 and the executive panel had
+   no working way to add a picture at all. The bytes now go into the database instead. */
+const noR2 = { ...env, MEDIA: null };
+async function upNoR2(bytes, name, type, endpoint) {
+  const fd = new FormData();
+  fd.append('file', new File([bytes], name, { type }));
+  return await worker.fetch(new Request(ORIGIN + (endpoint || '/api/admin/gallery/upload'), { method: 'POST', headers: { Origin: ORIGIN, Cookie: cookie }, body: fd }), noR2, {});
+}
+const r2CountBefore = r2.size;
+let u2 = await upNoR2(png, 'phone-photo.png', 'image/png');
+let d2 = await u2.clone().json();
+check('a photo still uploads with no R2 bucket attached', u2.status === 200 && /^\/uploads\/gallery\//.test(d2.url || ''), u2.status + ' ' + JSON.stringify(d2));
+check('the bytes went to the database, not R2', r2.size === r2CountBefore &&
+  db.prepare('SELECT COUNT(*) c FROM media_blobs').all()[0].c === 1);
+r = await worker.fetch(new Request(ORIGIN + d2.url), noR2, {});
+check('and it is served back with the right content type', r.status === 200 && r.headers.get('content-type') === 'image/png', 'got ' + r.status + ' ' + r.headers.get('content-type'));
+check('served with a long-lived cache header', /max-age=31536000/.test(r.headers.get('cache-control') || ''));
+check('the bytes come back unchanged', new Uint8Array(await r.arrayBuffer()).every((b, i) => b === png[i]));
+const etag = r.headers.get('etag');
+r = await worker.fetch(new Request(ORIGIN + d2.url, { headers: { 'if-none-match': etag } }), noR2, {});
+check('a repeat visit is answered 304 instead of resending the bytes', r.status === 304, 'got ' + r.status);
+r = await worker.fetch(new Request(ORIGIN + d2.url, { method: 'HEAD' }), noR2, {});
+check('HEAD works and sends no body', r.status === 200 && (await r.text()) === '');
+/* Without R2 a single upload has to fit in a database row, so an oversized one must say
+   so in plain words rather than failing with a generic error. */
+const big = new Uint8Array(950 * 1024); big.set(png);
+u2 = await upNoR2(big, 'big.png', 'image/png');
+d2 = await u2.clone().json();
+check('an upload too large for a database row is refused clearly', u2.status === 413 && /KB/.test(d2.error || '') && /R2/.test(d2.error || ''), u2.status + ' ' + JSON.stringify(d2));
+check('the refused upload was not half-saved', db.prepare('SELECT COUNT(*) c FROM media_blobs').all()[0].c === 1);
+u2 = await upNoR2(evil, 'shell.php', 'image/png');
+check('the byte-sniffing check still applies with R2 off', u2.status === 415, 'got ' + u2.status);
+r = await worker.fetch(new Request(ORIGIN + '/uploads/gallery/never-existed.png'), noR2, {});
+check('a missing database-backed upload is 404, not 500', r.status === 404, 'got ' + r.status);
+for (const t of ['/uploads/../src/index.js', '/uploads/..%2fsrc%2findex.js']) {
+  r = await worker.fetch(new Request(ORIGIN + t), noR2, {});
+  check('path traversal blocked with R2 off: ' + t, r.status === 404, 'got ' + r.status);
+}
+/* Documents share the same route, so check a PDF survives the trip as well. */
+const pdf = new Uint8Array([0x25,0x50,0x44,0x46,0x2D,0x31,0x2E,0x37,0x0A,0,0,0,0,0,0,0]);
+u2 = await upNoR2(pdf, 'notice.pdf', 'application/pdf', '/api/admin/notices/upload');
+d2 = await u2.clone().json();
+check('a notice attachment uploads with R2 off too', u2.status === 200 && /^\/uploads\/notices\//.test(d2.url || ''), u2.status + ' ' + JSON.stringify(d2));
+r = await worker.fetch(new Request(ORIGIN + d2.url), noR2, {});
+check('and the PDF is served back as a PDF', r.status === 200 && r.headers.get('content-type') === 'application/pdf', 'got ' + r.headers.get('content-type'));
+db.prepare('DELETE FROM media_blobs').run();
+
 section('9. Training session management');
 r = await hit('/api/admin/training', { method: 'POST', json: { title: '' } });
 check('empty training title rejected', r.status === 400);
@@ -369,8 +421,35 @@ check('the edited designation is stored',
   db.prepare('SELECT designation d FROM executives WHERE id=?').all(newPresId)[0].d === 'General Secretary');
 check('the photo is stored', db.prepare('SELECT photo_url u FROM executives WHERE id=?').all(newPresId)[0].u === 'assets/research-seminar.webp');
 r = await hit('/api/admin/executives/' + newPresId, { method: 'PUT', json: { name: 'New President', designation: 'General Secretary', tier: 'leadership', photoUrl: 'javascript:alert(1)' } });
+check('a dangerous photo link is refused outright, with a message', r.status === 400 && /photo address/i.test(r.body.error || ''), 'got ' + r.status + ' ' + JSON.stringify(r.body));
 check('a dangerous photo link is stripped, not stored',
   !/javascript/i.test(String(db.prepare('SELECT photo_url u FROM executives WHERE id=?').all(newPresId)[0].u || '')));
+check('and the photo that was already there survives the refusal',
+  db.prepare('SELECT photo_url u FROM executives WHERE id=?').all(newPresId)[0].u === 'assets/research-seminar.webp');
+
+/* A committee photo is normally called something like "Team Photo (2).jpg". The old rule
+   turned every one of those into NULL while still answering "Saved.", which is exactly why
+   no executive on the live site had a picture. */
+r = await hit('/api/admin/executives/' + newPresId, { method: 'PUT', json: { name: 'New President', designation: 'President', tier: 'leadership', photoUrl: 'assets/Team Photo (2).jpg' } });
+check('a photo filename containing a space is accepted, not silently dropped', r.status === 200, JSON.stringify(r.body));
+check('and it is stored as a usable escaped path',
+  db.prepare('SELECT photo_url u FROM executives WHERE id=?').all(newPresId)[0].u === 'assets/Team%20Photo%20(2).jpg',
+  'got ' + JSON.stringify(db.prepare('SELECT photo_url u FROM executives WHERE id=?').all(newPresId)[0].u));
+r = await hit('/api/admin/executives/' + newPresId, { method: 'PUT', json: { name: 'New President', designation: 'President', tier: 'leadership', photoUrl: 'assets/সবার.jpg' } });
+check('a Bengali photo filename is accepted too', r.status === 200 &&
+  /^assets\/%E0/.test(String(db.prepare('SELECT photo_url u FROM executives WHERE id=?').all(newPresId)[0].u || '')),
+  'got ' + JSON.stringify(db.prepare('SELECT photo_url u FROM executives WHERE id=?').all(newPresId)[0].u));
+for (const nasty of ['//evil.example/x.jpg', 'assets/../../src/index.js', 'data:text/html,<script>x</script>', 'vbscript:msgbox']) {
+  r = await hit('/api/admin/executives/' + newPresId, { method: 'PUT', json: { name: 'New President', designation: 'President', tier: 'leadership', photoUrl: nasty } });
+  check('still refuses ' + nasty, r.status === 400, 'got ' + r.status);
+}
+r = await hit('/api/admin/executives', { method: 'POST', json: { sessionId: newSessionId, name: 'SL Test', designation: 'Executive Member', tier: 'roster', slNo: 17 } });
+check('adding a roster member no longer records a hand-typed serial number',
+  r.status === 200 && db.prepare("SELECT sl_no s FROM executives WHERE name='SL Test'").all()[0].s === null,
+  'got ' + JSON.stringify(db.prepare("SELECT sl_no s FROM executives WHERE name='SL Test'").all()[0]));
+check('no executive anywhere carries a serial number, so the public table counts from 1',
+  db.prepare('SELECT COUNT(*) c FROM executives WHERE sl_no IS NOT NULL').all()[0].c === 0);
+await hit('/api/admin/executives/' + db.prepare("SELECT id FROM executives WHERE name='SL Test'").all()[0].id, { method: 'DELETE' });
 
 const oldSessionId = db.prepare('SELECT id FROM committee_sessions WHERE label=?').all(seededLabel)[0].id;
 r = await hit('/api/admin/executives/' + newPresId, { method: 'PUT', json: { sessionId: oldSessionId, name: 'New President', designation: 'General Secretary', tier: 'leadership' } });

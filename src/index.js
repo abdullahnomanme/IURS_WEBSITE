@@ -130,7 +130,15 @@ async function ensureSchema(env){
       `CREATE TABLE IF NOT EXISTS blog_posts (id INTEGER PRIMARY KEY AUTOINCREMENT,slug TEXT NOT NULL UNIQUE,title TEXT NOT NULL,author TEXT,category TEXT,excerpt TEXT,content TEXT,image_url TEXT,status TEXT NOT NULL DEFAULT 'draft',post_date TEXT,sort_order INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE INDEX IF NOT EXISTS idx_blog_status_date ON blog_posts(status,post_date DESC,id DESC)`,
       `CREATE TABLE IF NOT EXISTS applications (id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,student_id TEXT,department TEXT,academic_session TEXT,year_level TEXT,email TEXT,phone TEXT,research_interests TEXT,skills TEXT,experience TEXT,motivation TEXT,payment_method TEXT,transaction_id TEXT,payment_amount TEXT,payment_sender TEXT,payment_date TEXT,payment_status TEXT NOT NULL DEFAULT 'unverified',payment_note TEXT,verified_at TEXT,verified_by TEXT,status TEXT NOT NULL DEFAULT 'pending',admin_notes TEXT,source_key TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status,created_at DESC)`
+      `CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status,created_at DESC)`,
+      /* Where uploaded pictures and documents live when R2 is not switched on for the
+         account. R2 has to be enabled by hand in the Cloudflare dashboard, and until
+         somebody does that every upload used to fail with "storage is not connected",
+         which meant the dashboard's drag-and-drop simply did not work. Keeping the
+         bytes in D1 is not how you would store a photo library, but a committee photo
+         is a few tens of kilobytes and this makes the feature work with no setup at
+         all. When R2 is available it is still preferred — see putUpload below. */
+      `CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY,content_type TEXT NOT NULL,bytes BLOB NOT NULL,size INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`
     ];
     /* Indexes over columns that ALTER TABLE adds below. They cannot live in `ddl`:
        on a database that predates the column, CREATE TABLE IF NOT EXISTS is a no-op,
@@ -217,11 +225,29 @@ async function ensureSchema(env){
     await env.DB.prepare("UPDATE publications SET category='conference' WHERE category IN ('Conference','conference_paper','conference paper','research','Research Paper')").run();
     await env.DB.prepare("UPDATE publications SET category='working_paper' WHERE category IN ('working','Working Paper','working paper')").run();
     await env.DB.prepare("UPDATE publications SET category='under_review' WHERE category IN ('review','Under Review','under review')").run();
+    // The roster's serial numbers were typed in by hand and started at 5, so the public
+    // table read "5, 6, 7..." instead of "1, 2, 3...". Clearing them makes the page count
+    // the rows itself, which stays right no matter who is added or removed later.
+    await env.DB.prepare("UPDATE executives SET sl_no=NULL WHERE sl_no IS NOT NULL").run();
   })().catch(e=>{schemaReady=null;throw e});
   return schemaReady;
 }
 const body = req => req.json().catch(()=>({}));
-function cleanUrl(v){const s=String(v||'').trim();if(!s)return null;if(/^https?:\/\//i.test(s)){try{const u=new URL(s);return(u.protocol==='http:'||u.protocol==='https:')?u.href:null}catch{return null}}if(/^\/\//.test(s)||s.includes('..')||s.includes(':'))return null;if(/^\/?[\w][\w./-]*$/.test(s))return s;return null}
+function cleanUrl(v){const s=String(v||'').trim();if(!s||s.length>500)return null;
+ if(/^https?:\/\//i.test(s)){try{const u=new URL(s);return(u.protocol==='http:'||u.protocol==='https:')?u.href:null}catch{return null}}
+ // A scheme of any kind (javascript:, data:, vbscript:) and a protocol-relative "//host"
+ // are refused outright. Whatever is left is treated as a path inside this site.
+ if(/^\/\//.test(s)||/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(s)||s.includes('..')||s.includes('\\')||/[\u0000-\u001f<>"'`?#]/.test(s))return null;
+ // Real photo filenames contain spaces, brackets, ampersands and Bengali letters, and all
+ // of those are perfectly legal in a url once escaped. So escape them instead of throwing
+ // the path away: returning null here is what made the panel say "Saved." and then show
+ // no picture at all, with nothing on screen to explain why.
+ let out;try{out=s.replace(/%(?![0-9a-fA-F]{2})|[^\w%./~-]/gu,c=>encodeURIComponent(c))}catch{return null}
+ return out&&out!=='/'?out:null}
+// True when something was typed but cleanUrl could not make a usable address of it, so the
+// handler can answer with a real message rather than quietly storing NULL behind "Saved."
+function badUrl(raw,cleaned){return String(raw||'').trim()!==''&&cleaned===null}
+const PHOTO_REJECTED='That photo address could not be used. Drag a picture onto the photo box instead, or paste a full link starting with https://';
 function cleanText(v,max=10000){return String(v??'').trim().slice(0,max)}
 function isoDate(v){const s=cleanText(v,20);return s||null}
 // The admin dashboard has an optional "Order" box. If it is filled in we respect
@@ -246,10 +272,28 @@ function slugify(v){return cleanText(v,160).toLowerCase().replace(/[^a-z0-9\s-]/
 async function uniqueSlug(env,wanted,ignoreId){let base=slugify(wanted)||('post-'+Date.now());let slug=base;
  for(let n=2;n<200;n++){const clash=await env.DB.prepare('SELECT id FROM blog_posts WHERE slug=? AND id<>?').bind(slug,ignoreId||0).first();if(!clash)return slug;slug=base+'-'+n}
  return base+'-'+Date.now()}
-async function maybeDeleteUpload(env,url){const key=uploadKey(url);if(!key||!env.MEDIA)return;
+async function maybeDeleteUpload(env,url){const key=uploadKey(url);if(!key)return;
  for(const [t,col] of [['gallery_images','image_url'],['training_sessions','image_url'],['notices','image_url'],['notices','attachment_url'],['events','image_url'],['publications','url'],['executives','photo_url'],['alumni','photo_url'],['blog_posts','image_url']]){
   try{const r=await env.DB.prepare(`SELECT COUNT(*) c FROM ${t} WHERE ${col}=?`).bind(url).first();if(r&&r.c)return}catch{}}
- try{await env.MEDIA.delete(key)}catch(e){console.error('R2 delete failed',e)}}
+ if(env.MEDIA){try{await env.MEDIA.delete(key)}catch(e){console.error('R2 delete failed',e)}}
+ try{await env.DB.prepare('DELETE FROM media_blobs WHERE key=?').bind(key).run()}catch(e){console.error('media_blobs delete failed',e)}}
+
+/* Storing an upload. R2 is the right home for files and is used whenever the binding
+   is present. When it is not — R2 has to be switched on by hand in the Cloudflare
+   dashboard, and on this account it is not — the bytes go into D1 instead so that
+   drag-and-drop still works out of the box. D1 rows are kept small on purpose: the
+   dashboard shrinks pictures in the browser before sending them, and anything still
+   over D1_BLOB_MAX is refused with an explanation rather than silently dropped. */
+const D1_BLOB_MAX = 900 * 1024;
+async function putUpload(env,key,buf,contentType){
+ if(env.MEDIA){
+  try{await env.MEDIA.put(key,buf,{httpMetadata:{contentType,cacheControl:'public, max-age=31536000, immutable'}});return{ok:true,where:'r2'}}
+  catch(e){console.error('R2 put failed',e);return{ok:false,status:502,error:'Upload failed while saving the file. Please try again.'}}}
+ if(buf.byteLength>D1_BLOB_MAX)
+  return{ok:false,status:413,error:`This file is ${(buf.byteLength/1024).toFixed(0)} KB. Without Cloudflare R2 switched on, a single upload has to stay under ${Math.round(D1_BLOB_MAX/1024)} KB. Please use a smaller picture, or turn on R2 in the Cloudflare dashboard to lift the limit.`};
+ try{await env.DB.prepare('INSERT OR REPLACE INTO media_blobs(key,content_type,bytes,size) VALUES(?,?,?,?)').bind(key,contentType,buf,buf.byteLength).run();return{ok:true,where:'d1'}}
+ catch(e){console.error('media_blobs put failed',e);return{ok:false,status:502,error:'Upload failed while saving the file. Please try again.'}}}
+
 
 async function login(req,env){if(!sameOrigin(req))return json({error:'Invalid origin'},403);const b=await body(req);const id=cleanText(b.iursId,80).toUpperCase(),pw=String(b.password||'');if(!id||!pw)return json({error:'IURS ID and password are required.'},400);const ip=req.headers.get('CF-Connecting-IP')||'unknown';const rlKey=`${id}|${ip}`;const recent=await env.DB.prepare("SELECT COUNT(*) c FROM login_attempts WHERE attempt_key=? AND created_at>datetime('now','-15 minutes')").bind(rlKey).first();if(Number(recent?.c||0)>=8)return json({error:'Too many failed sign-in attempts. Please wait 15 minutes before trying again.'},429);const row=await env.DB.prepare('SELECT * FROM users WHERE upper(iurs_id)=? LIMIT 1').bind(id).first();if(!row||row.status!=='active'||!(await verifyPassword(pw,row.password_hash))){await env.DB.prepare('INSERT INTO login_attempts(attempt_key) VALUES(?)').bind(rlKey).run();return json({error:'Invalid IURS ID or password.'},401)}await env.DB.prepare('DELETE FROM login_attempts WHERE attempt_key=?').bind(rlKey).run();await env.DB.prepare("DELETE FROM login_attempts WHERE created_at<=datetime('now','-1 day')").run();await env.DB.prepare("DELETE FROM sessions WHERE expires_at<=datetime('now')").run();const token=await randomToken(),hash=await sha256Base64(token),expires=new Date(Date.now()+SESSION_DAYS*86400000).toISOString();await env.DB.prepare('INSERT INTO sessions(user_id,token_hash,expires_at) VALUES(?,?,?)').bind(row.id,hash,expires).run();const target=row.role==='member'?'/dashboard.html':'/admin.html';return json({ok:true,user:cleanUser(row),redirect:target},200,{'Set-Cookie':`iurs_session=${token}; ${cookieOptions(SESSION_DAYS*86400)}`})}
 async function logout(req,env){const c=parseCookie(req.headers.get('Cookie')||'');if(c.iurs_session)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256Base64(c.iurs_session)).run();return json({ok:true},200,{'Set-Cookie':`iurs_session=; ${cookieOptions(0)}`})}
@@ -394,7 +438,7 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
     The file is sniffed by its real first bytes, exactly like a photo, so renaming
     something .pdf does not get it accepted. Without R2 the admin can still paste a
     link to a file that already lives somewhere else. */
- if(path==='/api/admin/notices/upload'&&m==='POST'){if(!env.MEDIA)return json({error:'File storage is not connected yet. You can still attach a document by pasting a link to it in the Attachment field.',code:'no_bucket'},503);
+ if(path==='/api/admin/notices/upload'&&m==='POST'){
   let form;try{form=await req.formData()}catch{return json({error:'Could not read the uploaded file.'},400)}
   const file=form.get('file');if(!file||typeof file==='string'||!file.arrayBuffer)return json({error:'Please choose a file to upload.'},400);
   if(file.size>UPLOAD_MAX_BYTES)return json({error:`That file is ${(file.size/1048576).toFixed(1)} MB. Please use a file under 8 MB.`},413);
@@ -402,9 +446,9 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   const buf=await file.arrayBuffer();const real=sniffDoc(buf.slice(0,16))||sniffImage(buf.slice(0,16));
   if(!real||!DOC_TYPES[real])return json({error:'Only PDF, Word, Excel, PowerPoint or image files can be attached.'},415);
   const key=`notices/${new Date().getFullYear()}/${b64u(crypto.getRandomValues(new Uint8Array(12)))}.${DOC_TYPES[real]}`;
-  try{await env.MEDIA.put(key,buf,{httpMetadata:{contentType:real,cacheControl:'public, max-age=31536000, immutable'}})}catch(e){console.error('R2 put failed',e);return json({error:'Upload failed while saving the file. Please try again.'},502)}
+  const put=await putUpload(env,key,buf,real);if(!put.ok)return json({error:put.error},put.status);
   return json({ok:true,url:'/uploads/'+key,name:cleanText(file.name,160)||('attachment.'+DOC_TYPES[real]),contentType:real,bytes:file.size})}
- if(path==='/api/admin/gallery/upload'&&m==='POST'){if(!env.MEDIA)return json({error:'Photo upload storage is not connected yet. You can still add a photo by pasting an image path or link in the Image field.',code:'no_bucket'},503);
+ if(path==='/api/admin/gallery/upload'&&m==='POST'){
   let form;try{form=await req.formData()}catch{return json({error:'Could not read the uploaded file.'},400)}
   const file=form.get('file');if(!file||typeof file==='string'||!file.arrayBuffer)return json({error:'Please choose an image file to upload.'},400);
   if(file.size>UPLOAD_MAX_BYTES)return json({error:`That image is ${(file.size/1048576).toFixed(1)} MB. Please use an image under 8 MB.`},413);
@@ -412,7 +456,7 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   const buf=await file.arrayBuffer();const real=sniffImage(buf.slice(0,16));
   if(!real||!UPLOAD_TYPES[real])return json({error:'Only JPG, PNG, WebP, GIF or AVIF images can be uploaded.'},415);
   const key=`gallery/${new Date().getFullYear()}/${b64u(crypto.getRandomValues(new Uint8Array(12)))}.${UPLOAD_TYPES[real]}`;
-  try{await env.MEDIA.put(key,buf,{httpMetadata:{contentType:real,cacheControl:'public, max-age=31536000, immutable'}})}catch(e){console.error('R2 put failed',e);return json({error:'Upload failed while saving the image. Please try again.'},502)}
+  const put=await putUpload(env,key,buf,real);if(!put.ok)return json({error:put.error},put.status);
   return json({ok:true,url:'/uploads/'+key,contentType:real,bytes:file.size})}
  if(path==='/api/admin/gallery'&&m==='GET'){const r=await env.DB.prepare('SELECT * FROM gallery_images ORDER BY sort_order,id').all();return json({gallery:r.results||[],categories:GALLERY_CATEGORIES})}
  if(path==='/api/admin/gallery'&&m==='POST'){const b=await body(req),title=cleanText(b.title,300),image=cleanUrl(b.imageUrl);
@@ -494,8 +538,9 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   if(!name||!designation)return json({error:'Name and designation are required.'},400);
   const s=await env.DB.prepare('SELECT id FROM committee_sessions WHERE id=?').bind(sid).first();
   if(!s)return json({error:'Choose which committee session this person belongs to.'},400);
+  const photo=cleanUrl(b.photoUrl);if(badUrl(b.photoUrl,photo))return json({error:PHOTO_REJECTED},400);
   const o=await env.DB.prepare('SELECT COALESCE(MAX(sort_order),-1)+1 n FROM executives WHERE session_id=?').bind(sid).first();
-  await env.DB.prepare('INSERT INTO executives(session_id,name,designation,department,tier,photo_url,email,linkedin_url,facebook_url,sl_no,sort_order,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').bind(sid,name,designation,cleanText(b.department,200)||null,EXEC_TIERS.includes(b.tier)?b.tier:'roster',cleanUrl(b.photoUrl),cleanText(b.email,200)||null,cleanUrl(b.linkedinUrl),cleanUrl(b.facebookUrl),Number.isFinite(+b.slNo)&&b.slNo!==''?Math.trunc(+b.slNo):null,sortValue(b.sortOrder,(o&&o.n)||0),b.status==='inactive'?'inactive':'active').run();
+  await env.DB.prepare('INSERT INTO executives(session_id,name,designation,department,tier,photo_url,email,linkedin_url,facebook_url,sl_no,sort_order,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').bind(sid,name,designation,cleanText(b.department,200)||null,EXEC_TIERS.includes(b.tier)?b.tier:'roster',photo,cleanText(b.email,200)||null,cleanUrl(b.linkedinUrl),cleanUrl(b.facebookUrl),null,sortValue(b.sortOrder,(o&&o.n)||0),b.status==='inactive'?'inactive':'active').run();
   return json({ok:true})}
  if(path.match(/^\/api\/admin\/executives\/\d+$/)&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req),name=cleanText(b.name,160),designation=cleanText(b.designation,160);
   if(!name||!designation)return json({error:'Name and designation are required.'},400);
@@ -505,8 +550,8 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   let sid=Number(b.sessionId)||prev.session_id;
   const s=await env.DB.prepare('SELECT id FROM committee_sessions WHERE id=?').bind(sid).first();
   if(!s)sid=prev.session_id;
-  const photo=cleanUrl(b.photoUrl);
-  await env.DB.prepare("UPDATE executives SET session_id=?,name=?,designation=?,department=?,tier=?,photo_url=?,email=?,linkedin_url=?,facebook_url=?,sl_no=?,sort_order=?,status=?,updated_at=datetime('now') WHERE id=?").bind(sid,name,designation,cleanText(b.department,200)||null,EXEC_TIERS.includes(b.tier)?b.tier:'roster',photo,cleanText(b.email,200)||null,cleanUrl(b.linkedinUrl),cleanUrl(b.facebookUrl),Number.isFinite(+b.slNo)&&b.slNo!==''?Math.trunc(+b.slNo):null,sortValue(b.sortOrder,prev.sort_order||0),b.status==='inactive'?'inactive':'active',id).run();
+  const photo=cleanUrl(b.photoUrl);if(badUrl(b.photoUrl,photo))return json({error:PHOTO_REJECTED},400);
+  await env.DB.prepare("UPDATE executives SET session_id=?,name=?,designation=?,department=?,tier=?,photo_url=?,email=?,linkedin_url=?,facebook_url=?,sl_no=NULL,sort_order=?,status=?,updated_at=datetime('now') WHERE id=?").bind(sid,name,designation,cleanText(b.department,200)||null,EXEC_TIERS.includes(b.tier)?b.tier:'roster',photo,cleanText(b.email,200)||null,cleanUrl(b.linkedinUrl),cleanUrl(b.facebookUrl),sortValue(b.sortOrder,prev.sort_order||0),b.status==='inactive'?'inactive':'active',id).run();
   if(prev.photo_url!==photo) await maybeDeleteUpload(env,prev.photo_url);
   return json({ok:true})}
  if(path.match(/^\/api\/admin\/executives\/\d+$/)&&m==='DELETE'){const id=Number(path.split('/').pop());
@@ -833,9 +878,34 @@ async function chat(req,env){
  }catch(e){console.error('Workers AI unavailable',e);return json({reply:fallback,grounded:true,model:'facts-only'})}}
 
 export default {async fetch(request,env,ctx){const url=new URL(request.url);try{if(url.pathname.startsWith('/api/')){await ensureSchema(env);const user=await currentUser(request,env);if(request.method==='POST'&&url.pathname==='/api/auth/login')return await login(request,env);if(request.method==='POST'&&url.pathname==='/api/auth/logout')return await logout(request,env);if(request.method==='POST'&&url.pathname==='/api/auth/change-password')return await changePassword(request,env,user);if(request.method==='POST'&&url.pathname==='/api/setup/initial-admin')return await setup(request,env);if(request.method==='GET'&&url.pathname==='/api/auth/me')return json({authenticated:!!user,user});if(url.pathname.startsWith('/api/admin/')){if(user&&user.must_change_password)return json({error:'For security, please set a new password before managing content.',code:'must_change_password'},403);return await adminApi(request,env,user,url.pathname)}if(url.pathname.startsWith('/api/public/'))return await publicApi(request,env,url.pathname);if(url.pathname==='/api/health')return json({ok:true,service:'IURS full-stack backend'});return json({error:'Not found'},404)}
-if(url.pathname.startsWith('/uploads/')){if(request.method!=='GET'&&request.method!=='HEAD')return json({error:'Method not allowed'},405);if(!env.MEDIA)return new Response('Not found',{status:404});let key;try{key=decodeURIComponent(url.pathname.slice(9))}catch{return new Response('Not found',{status:404})}if(!key||key.includes('..')||key.startsWith('/'))return new Response('Not found',{status:404});const obj=await env.MEDIA.get(key);if(!obj)return new Response('Not found',{status:404});const uh=new Headers();obj.writeHttpMetadata(uh);uh.set('etag',obj.httpEtag);uh.set('Cache-Control','public, max-age=31536000, immutable');uh.set('X-Content-Type-Options','nosniff');return new Response(request.method==='HEAD'?null:obj.body,{headers:uh})}
+if(url.pathname.startsWith('/uploads/')){if(request.method!=='GET'&&request.method!=='HEAD')return json({error:'Method not allowed'},405);
+ let key;try{key=decodeURIComponent(url.pathname.slice(9))}catch{return new Response('Not found',{status:404})}
+ if(!key||key.includes('..')||key.startsWith('/'))return new Response('Not found',{status:404});
+ // R2 first when the bucket is attached, then the D1 copy. Uploads made while R2 was
+ // switched off live in media_blobs, so both places have to be checked or a photo
+ // uploaded last week would vanish the day R2 gets enabled.
+ if(env.MEDIA){try{const obj=await env.MEDIA.get(key);if(obj){const uh=new Headers();obj.writeHttpMetadata(uh);uh.set('etag',obj.httpEtag);uh.set('Cache-Control','public, max-age=31536000, immutable');uh.set('X-Content-Type-Options','nosniff');return new Response(request.method==='HEAD'?null:obj.body,{headers:uh})}}catch(e){console.error('R2 get failed',e)}}
+ let row=null;try{row=await env.DB.prepare('SELECT content_type,bytes,size FROM media_blobs WHERE key=?').bind(key).first()}catch(e){console.error('media_blobs get failed',e)}
+ if(!row||!row.bytes)return new Response('Not found',{status:404});
+ // D1 hands a BLOB back as an array of byte values; other engines hand back a typed
+ // array. Accept whichever shape arrives rather than assuming one of them.
+ const raw=row.bytes;
+ const body=raw instanceof Uint8Array?raw:raw instanceof ArrayBuffer?new Uint8Array(raw):new Uint8Array(Array.isArray(raw)?raw:[]);
+ const etag='"'+key.replace(/[^\w.-]/g,'')+'-'+(row.size||body.length)+'"';
+ const uh=new Headers({'content-type':row.content_type||'application/octet-stream','content-length':String(body.length),etag,'Cache-Control':'public, max-age=31536000, immutable','X-Content-Type-Options':'nosniff'});
+ if((request.headers.get('if-none-match')||'')===etag)return new Response(null,{status:304,headers:uh});
+ return new Response(request.method==='HEAD'?null:body,{headers:uh})}
 if(url.pathname==='/robots.txt')return new Response(`User-agent: *\nAllow: /\nDisallow: /admin.html\nDisallow: /dashboard.html\nDisallow: /login.html\nDisallow: /setup.html\nDisallow: /api/\n\nSitemap: ${url.origin}/sitemap.xml\n`,{headers:{'content-type':'text/plain; charset=utf-8','cache-control':'public, max-age=86400'}});
-if(url.pathname==='/sitemap.xml'){const pages=['/','/about.html','/notices.html','/publications.html','/blog.html','/events.html','/training-session.html','/gallery.html','/executive-committee.html','/alumni.html','/join.html','/contact.html'];return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map(p=>`  <url><loc>${url.origin}${p}</loc><changefreq>${p==='/'?'weekly':'monthly'}</changefreq><priority>${p==='/'?'1.0':'0.7'}</priority></url>`).join('\n')}\n</urlset>\n`,{headers:{'content-type':'application/xml; charset=utf-8','cache-control':'public, max-age=86400'}})}
+if(url.pathname==='/sitemap.xml'){
+ // Google prefers a real <lastmod>, so take it from the newest thing actually published.
+ // Wrapped in try/catch: a database hiccup must never be able to break the sitemap.
+ let stamp=null;
+ try{const r=await env.DB.prepare("SELECT MAX(t) t FROM (SELECT MAX(COALESCE(updated_at,created_at)) t FROM notices UNION ALL SELECT MAX(COALESCE(updated_at,created_at)) FROM events UNION ALL SELECT MAX(COALESCE(updated_at,created_at)) FROM blog_posts UNION ALL SELECT MAX(COALESCE(updated_at,created_at)) FROM publications UNION ALL SELECT MAX(COALESCE(updated_at,created_at)) FROM gallery_images)").first();
+  if(r&&r.t){const d=new Date(String(r.t).trim().replace(' ','T')+(String(r.t).endsWith('Z')?'':'Z'));if(!isNaN(d))stamp=d.toISOString()}}catch(e){console.error('sitemap lastmod skipped',e)}
+ const lm=stamp?`<lastmod>${stamp}</lastmod>`:'';
+ // How often each page really changes, rather than one blanket guess for all twelve.
+ const pages=[['/','daily','1.0'],['/notices.html','daily','0.9'],['/publications.html','weekly','0.8'],['/blog.html','weekly','0.8'],['/events.html','weekly','0.8'],['/join.html','monthly','0.8'],['/about.html','monthly','0.7'],['/training-session.html','monthly','0.7'],['/gallery.html','monthly','0.7'],['/executive-committee.html','monthly','0.7'],['/alumni.html','monthly','0.6'],['/contact.html','monthly','0.6']];
+ return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map(([p,cf,pr])=>`  <url><loc>${url.origin}${p}</loc>${lm}<changefreq>${cf}</changefreq><priority>${pr}</priority></url>`).join('\n')}\n</urlset>\n`,{headers:{'content-type':'application/xml; charset=utf-8','cache-control':'public, max-age=86400'}})}
 const asset=await env.ASSETS.fetch(request);const h=new Headers(asset.headers);h.set('X-Content-Type-Options','nosniff');h.set('Referrer-Policy','strict-origin-when-cross-origin');h.set('X-Frame-Options','SAMEORIGIN');const out=new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers:h});
 // Search engines and social previews need FULL urls. The pages carry data-abs="/page.html"
 // and we fill in the real hostname here, so no domain is ever hard-coded in the files.
