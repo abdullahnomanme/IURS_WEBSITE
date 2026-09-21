@@ -14,7 +14,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Production is always deployed from the exact GitHub commit checked out by this run.
   IURS_WORKER: iurs-website
 
 jobs:
@@ -37,6 +36,14 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Validate Worker source
+        run: |
+          node --check src/index.js
+          echo "--- Worker source tail ---"
+          tail -n 8 src/index.js
+          echo "--- Git commit ---"
+          git rev-parse HEAD
 
       - name: Run application tests
         run: |
