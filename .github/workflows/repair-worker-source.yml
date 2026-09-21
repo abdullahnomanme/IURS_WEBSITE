@@ -25,8 +25,10 @@ jobs:
           import subprocess
           p = Path('src/index.js')
           s = p.read_text(encoding='utf-8')
+          check_file = Path('/tmp/iurs-index-check.mjs')
           def check(text):
-              return subprocess.run(['node', '--input-type=module', '--check'], input=text, capture_output=True, text=True)
+              check_file.write_text(text, encoding='utf-8')
+              return subprocess.run(['node', '--check', str(check_file)], capture_output=True, text=True)
           current = check(s)
           if current.returncode == 0:
               print('Worker ES-module syntax is valid; no repair needed.')
