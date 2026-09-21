@@ -999,3 +999,5 @@ async function adminRoutes(req,env,user,path){if(!allowed(user))return json({err
   return json({ok:true})}
  if(path.match(/^\/api\/admin\/applications\/\d+$/)&&m==='DELETE'){if(user.role!=='admin')return json({error:'Only administrators can delete an application.'},403);
   await env.DB.prepare('DELETE FROM applications WHERE id=?').bind(Number(path.split('/').pop())).run();return json({ok:true})}
+}
+};
