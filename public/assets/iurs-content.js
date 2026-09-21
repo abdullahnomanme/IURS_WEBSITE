@@ -822,6 +822,10 @@
       if (!box) return;
       box.className = 'iu-window ' + (r.open ? 'open' : 'shut');
       box.hidden = false;
+      var media = document.getElementById('j-window-media');
+      var mediaImg = document.getElementById('j-window-image');
+      var image = safeSrc(r.imageUrl);
+      if (media && mediaImg) { if (image) { mediaImg.src = image; mediaImg.alt = r.title ? r.title + ' recruitment campaign' : 'Recruitment campaign'; media.hidden = false; } else { mediaImg.removeAttribute('src'); media.hidden = true; } }
       var state = document.getElementById('j-window-state');
       if (state) state.textContent = (r.open ? 'Applications are open' : 'Applications are closed') +
         (r.code ? ' · Campaign ' + esc(r.code) : '');

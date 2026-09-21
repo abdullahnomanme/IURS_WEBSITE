@@ -97,7 +97,7 @@ function recruitmentIsOpen(s,today){
 function publicRecruitment(s){
  const open=recruitmentIsOpen(s);
  return {open,title:s.title,message:open?s.openMessage:s.closedMessage,opensOn:s.opensOn||null,closesOn:s.closesOn||null,
-  campaignId:s.campaignId||null,code:s.code||null,
+  campaignId:s.campaignId||null,code:s.code||null,imageUrl:s.imageUrl||'',imageUrl:s.imageUrl||'',
   fee:s.fee||'',currency:s.currency||'BDT',feeNote:s.feeNote||'',requirePayment:!!s.requirePayment,
   methods:String(s.methods||'').split(',').map(x=>x.trim()).filter(Boolean),
   payTo:s.payTo||'',payToLabel:s.payToLabel||''};
@@ -225,7 +225,7 @@ async function ensureSchema(env){
       /* Recruitment campaigns. The single site_settings window is kept working for
          backward compatibility, but campaigns let the admin run a numbered call
          (4.1, 4.2, ...), open and close it by date, and archive previous ones. */
-      `CREATE TABLE IF NOT EXISTS recruitment_campaigns (id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,code TEXT,open INTEGER NOT NULL DEFAULT 0,opens_on TEXT,closes_on TEXT,fee TEXT,currency TEXT DEFAULT 'BDT',fee_note TEXT,methods TEXT,pay_to TEXT,pay_to_label TEXT,require_payment INTEGER NOT NULL DEFAULT 1,open_message TEXT,closed_message TEXT,archived INTEGER NOT NULL DEFAULT 0,sort_order INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS recruitment_campaigns (id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,code TEXT,open INTEGER NOT NULL DEFAULT 0,opens_on TEXT,closes_on TEXT,fee TEXT,currency TEXT DEFAULT 'BDT',fee_note TEXT,methods TEXT,pay_to TEXT,pay_to_label TEXT,require_payment INTEGER NOT NULL DEFAULT 1,open_message TEXT,closed_message TEXT,image_url TEXT,archived INTEGER NOT NULL DEFAULT 0,sort_order INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE INDEX IF NOT EXISTS idx_campaigns_active ON recruitment_campaigns(archived,open,sort_order,id)`
     ];
     /* Indexes over columns that ALTER TABLE adds below. They cannot live in `ddl`:
@@ -291,7 +291,7 @@ async function ensureSchema(env){
          application cannot be approved by accident before the money is checked:
          the admin has to match transaction_id against the receiving account and
          mark it verified, and only then does approving become possible. */
-      applications:[['payment_method','TEXT'],['transaction_id','TEXT'],['payment_amount','TEXT'],['payment_sender','TEXT'],['payment_date','TEXT'],["payment_status","TEXT NOT NULL DEFAULT 'unverified'"],['payment_note','TEXT'],['verified_at','TEXT'],['verified_by','TEXT'],['year_level','TEXT'],['campaign_id','INTEGER']]};
+      applications:[['payment_method','TEXT'],['transaction_id','TEXT'],['payment_amount','TEXT'],['payment_sender','TEXT'],['payment_date','TEXT'],["payment_status","TEXT NOT NULL DEFAULT 'unverified'"],['payment_note','TEXT'],['verified_at','TEXT'],['verified_by','TEXT'],['year_level','TEXT'],['campaign_id','INTEGER']],recruitment_campaigns:[['image_url','TEXT']]};
     for(const [table,cols] of Object.entries(columns)){
       const info=await env.DB.prepare(`PRAGMA table_info(${table})`).all();const have=new Set((info.results||[]).map(x=>x.name));
       for(const [name,type] of cols) if(!have.has(name)) await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`).run();
@@ -498,6 +498,7 @@ function campaignToSettings(c,today){
   fee:c.fee||'',currency:c.currency||'BDT',feeNote:c.fee_note||'',
   methods:c.methods||'',payTo:c.pay_to||'',payToLabel:c.pay_to_label||'',
   requirePayment:!!c.require_payment,
+  imageUrl:c.image_url||'',
   campaignId:c.id,code:c.code||''
  };
 }
@@ -524,7 +525,7 @@ function publicCampaign(c,today){
   opensOn:c.opens_on||null,closesOn:c.closes_on||null,fee:c.fee||'',currency:c.currency||'BDT',
   feeNote:c.fee_note||'',requirePayment:!!c.require_payment,
   methods:String(c.methods||'').split(',').map(x=>x.trim()).filter(Boolean),
-  payTo:c.pay_to||'',payToLabel:c.pay_to_label||''};
+  payTo:c.pay_to||'',payToLabel:c.pay_to_label||'',imageUrl:c.image_url||''};
 }
 
 /* A notice is "active" while it is published and not past its expiry date.
@@ -896,12 +897,12 @@ async function adminRoutes(req,env,user,path){if(!allowed(user))return json({err
  if(path==='/api/admin/campaigns'&&m==='POST'){const b=await body(req);if(!cleanText(b.title,120))return json({error:'Campaign title is required.'},400);
   const o=await env.DB.prepare('SELECT COALESCE(MAX(sort_order),-1)+1 n FROM recruitment_campaigns').first();
   const d=v=>{const s=cleanText(v,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:null};
-  await env.DB.prepare('INSERT INTO recruitment_campaigns(title,code,open,opens_on,closes_on,fee,currency,fee_note,methods,pay_to,pay_to_label,require_payment,open_message,closed_message,sort_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(cleanText(b.title,120),cleanText(b.code,40)||null,b.open?1:0,d(b.opensOn),d(b.closesOn),cleanText(b.fee,20)||null,cleanText(b.currency,10)||'BDT',cleanText(b.feeNote,300)||null,cleanText(b.methods,300)||null,cleanText(b.payTo,120)||null,cleanText(b.payToLabel,120)||null,b.requirePayment===false?0:1,cleanText(b.openMessage,600)||null,cleanText(b.closedMessage,600)||null,sortValue(b.sortOrder,(o&&o.n)||0)).run();
+  await env.DB.prepare('INSERT INTO recruitment_campaigns(title,code,open,opens_on,closes_on,fee,currency,fee_note,methods,pay_to,pay_to_label,require_payment,open_message,closed_message,image_url,sort_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(cleanText(b.title,120),cleanText(b.code,40)||null,b.open?1:0,d(b.opensOn),d(b.closesOn),cleanText(b.fee,20)||null,cleanText(b.currency,10)||'BDT',cleanText(b.feeNote,300)||null,cleanText(b.methods,300)||null,cleanText(b.payTo,120)||null,cleanText(b.payToLabel,120)||null,b.requirePayment===false?0:1,cleanText(b.openMessage,600)||null,cleanText(b.closedMessage,600)||null,cleanUrl(b.imageUrl)||null,sortValue(b.sortOrder,(o&&o.n)||0)).run();
   return json({ok:true})}
  if(path.match(/^\/api\/admin\/campaigns\/\d+$/)&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req);
   const prev=await env.DB.prepare('SELECT * FROM recruitment_campaigns WHERE id=?').bind(id).first();if(!prev)return json({error:'Campaign not found.'},404);
   const d=v=>{const s=cleanText(v,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:null};
-  await env.DB.prepare("UPDATE recruitment_campaigns SET title=?,code=?,open=?,opens_on=?,closes_on=?,fee=?,currency=?,fee_note=?,methods=?,pay_to=?,pay_to_label=?,require_payment=?,open_message=?,closed_message=?,sort_order=?,updated_at=datetime('now') WHERE id=?").bind(cleanText(b.title,120)||prev.title,cleanText(b.code,40)||null,b.open?1:0,d(b.opensOn),d(b.closesOn),cleanText(b.fee,20)||null,cleanText(b.currency,10)||'BDT',cleanText(b.feeNote,300)||null,cleanText(b.methods,300)||null,cleanText(b.payTo,120)||null,cleanText(b.payToLabel,120)||null,b.requirePayment===false?0:1,cleanText(b.openMessage,600)||null,cleanText(b.closedMessage,600)||null,sortValue(b.sortOrder,prev.sort_order||0),id).run();
+  await env.DB.prepare("UPDATE recruitment_campaigns SET title=?,code=?,open=?,opens_on=?,closes_on=?,fee=?,currency=?,fee_note=?,methods=?,pay_to=?,pay_to_label=?,require_payment=?,open_message=?,closed_message=?,image_url=?,sort_order=?,updated_at=datetime('now') WHERE id=?").bind(cleanText(b.title,120)||prev.title,cleanText(b.code,40)||null,b.open?1:0,d(b.opensOn),d(b.closesOn),cleanText(b.fee,20)||null,cleanText(b.currency,10)||'BDT',cleanText(b.feeNote,300)||null,cleanText(b.methods,300)||null,cleanText(b.payTo,120)||null,cleanText(b.payToLabel,120)||null,b.requirePayment===false?0:1,cleanText(b.openMessage,600)||null,cleanText(b.closedMessage,600)||null,cleanUrl(b.imageUrl)||null,sortValue(b.sortOrder,prev.sort_order||0),id).run();
   return json({ok:true})}
  if(path.match(/^\/api\/admin\/campaigns\/\d+\/archive$/)&&m==='POST'){const id=Number(path.split('/')[4]),b=await body(req);await env.DB.prepare("UPDATE recruitment_campaigns SET archived=?,updated_at=datetime('now') WHERE id=?").bind(b.archived?1:0,id).run();return json({ok:true,archived:b.archived?1:0})}
 
