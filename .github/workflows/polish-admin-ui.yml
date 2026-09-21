@@ -10,86 +10,51 @@ permissions:
 
 jobs:
   polish:
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(admin): polish') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore(admin): polish') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Apply admin UI and CMS media polish
-        shell: python
         run: |
+          python - <<'PY'
           from pathlib import Path
 
           p = Path('public/admin.html')
           s = p.read_text(encoding='utf-8')
 
-          # Current main already contains the recruitment/campaign media controls.
-          # This patch is intentionally additive and idempotent: it never removes
-          # existing fields or changes the admin information architecture.
-          css = r'''
-          /* IURS ADMIN UI V3 — additive visual/UX polish. */
-          :root{
-            --admin-accent:#9f1239;--admin-accent-2:#7f102f;--admin-navy:#081a33;
-            --admin-gold:#c9a24e;--admin-bg:#f5f7fa;--admin-card:#fff;
-            --admin-border:#e4e8ee;--admin-muted:#667085;--admin-text:#101828;
-          }
-          body{background:radial-gradient(circle at 88% 0%,rgba(201,162,78,.08),transparent 26%),linear-gradient(180deg,#f8fafc 0%,#f3f5f8 100%);}
-          .wrap{max-width:1600px;padding:30px 32px 48px}
-          .layout{grid-template-columns:260px minmax(0,1fr);gap:30px}
+          css = r'''/* IURS ADMIN UI V3 — additive visual/UX polish. */
+          :root{--admin-accent:#9f1239;--admin-accent-2:#7f102f;--admin-navy:#081a33;--admin-gold:#c9a24e;--admin-bg:#f5f7fa;--admin-card:#fff;--admin-border:#e4e8ee;--admin-muted:#667085;--admin-text:#101828}
+          body{background:radial-gradient(circle at 88% 0%,rgba(201,162,78,.08),transparent 26%),linear-gradient(180deg,#f8fafc 0%,#f3f5f8 100%)}
+          .wrap{max-width:1600px;padding:30px 32px 48px}.layout{grid-template-columns:260px minmax(0,1fr);gap:30px}
           .tabs{padding:10px;border-radius:20px;background:rgba(255,255,255,.96);box-shadow:0 18px 48px rgba(16,24,40,.08);border-color:#e3e7ed}
-          .tab{min-height:42px;display:flex!important;align-items:center;gap:8px}
-          .tab.active{box-shadow:0 8px 20px rgba(143,23,56,.20)!important}
-          .panel{border-radius:20px;box-shadow:0 10px 30px rgba(16,24,40,.055);border-color:#e5e9ef}
-          .panel>h2{font-size:21px;letter-spacing:-.025em}
-          .panel>p.muted{max-width:900px;line-height:1.7}
-          .field{min-width:0}
-          .field label{color:#344054;line-height:1.35}
-          .field input,.field select,.field textarea{min-height:42px;background:#fff}
-          .field textarea{line-height:1.55}
-          .field input::placeholder,.field textarea::placeholder{color:#98a2b3}
-          .form-actions{gap:10px}
-          .btn{min-height:40px;padding:10px 15px}
-          .cards{gap:18px}
+          .tab{min-height:42px;display:flex!important;align-items:center;gap:8px}.tab.active{box-shadow:0 8px 20px rgba(143,23,56,.20)!important}
+          .panel{border-radius:20px;box-shadow:0 10px 30px rgba(16,24,40,.055);border-color:#e5e9ef}.panel>h2{font-size:21px;letter-spacing:-.025em}.panel>p.muted{max-width:900px;line-height:1.7}
+          .field{min-width:0}.field label{color:#344054;line-height:1.35}.field input,.field select,.field textarea{min-height:42px;background:#fff}.field textarea{line-height:1.55}.field input::placeholder,.field textarea::placeholder{color:#98a2b3}
+          .form-actions{gap:10px}.btn{min-height:40px;padding:10px 15px}.cards{gap:18px}
           .mini{position:relative;overflow:hidden;border-radius:17px;background:linear-gradient(180deg,#fff,#fcfdff);box-shadow:0 4px 18px rgba(16,24,40,.045)}
-          .mini .campaign-card-media,.mini img{width:100%;height:148px;object-fit:cover;border-radius:12px;margin:0 0 13px;background:#f2f4f7}
-          .mini .campaign-card-media{object-fit:cover}
-          .mini h3{font-size:15px;line-height:1.4}
+          .mini .campaign-card-media,.mini img{width:100%;height:148px;object-fit:cover;border-radius:12px;margin:0 0 13px;background:#f2f4f7}.mini h3{font-size:15px;line-height:1.4}
           .dropzone{position:relative;min-height:116px;display:flex;align-items:center;justify-content:center;border:1.5px dashed #cbd3dd;background:linear-gradient(180deg,#fcfdff,#f8fafc);box-shadow:inset 0 1px 0 rgba(255,255,255,.8);transition:transform .18s,border-color .18s,box-shadow .18s,background .18s}
           .dropzone:hover,.dropzone.drag{transform:translateY(-1px);border-color:var(--admin-accent);box-shadow:0 0 0 4px rgba(159,18,57,.06),0 10px 24px rgba(16,24,40,.06);background:#fff8fa}
-          .dz-inner b{font-size:13.5px;color:#344054}.dz-inner span{display:block;margin-top:5px;color:#667085;line-height:1.5}
-          .dz-row{align-items:center}.dz-prev{width:92px;height:92px;border-radius:12px;background:#f2f4f7;object-fit:cover}
-          .cms-media-field{grid-column:1/-1;padding:16px;border:1px solid #e7ebf0;border-radius:16px;background:linear-gradient(180deg,#fbfcfe,#f8fafc)}
-          .cms-media-field>label{font-size:13px;margin-bottom:10px}.cms-media-box{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:16px;align-items:center}
-          .cms-media-preview{width:180px;height:120px;object-fit:cover;border-radius:14px;border:1px solid #e2e7ed;background:#f2f4f7;box-shadow:0 6px 18px rgba(16,24,40,.07)}
-          .cms-media-field .dz-row{margin-top:12px}.cms-media-field .dz-row input{background:#fff}
-          .campaign-actions{margin-top:14px}.campaign-kicker{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px}
-          .campaign-kicker .pill{font-size:10px}
-          #recruitment .panel,#campaigns .panel{overflow:hidden}
-          #recruitment .banner{border-radius:12px}
-          #campaigns .mini:hover,#recruitment .mini:hover{transform:translateY(-3px)}
-          .section.active{animation:adminSectionIn .18s ease-out}
-          @keyframes adminSectionIn{from{opacity:.72;transform:translateY(3px)}to{opacity:1;transform:none}}
-          .msg{min-height:18px;font-weight:700;color:#15703f}
-          .msg:empty{display:block}
-          input[type=checkbox]{accent-color:var(--admin-accent)}
-          :focus-visible{outline:3px solid rgba(159,18,57,.24);outline-offset:2px}
+          .dz-inner b{font-size:13.5px;color:#344054}.dz-inner span{display:block;margin-top:5px;color:#667085;line-height:1.5}.dz-row{align-items:center}.dz-prev{width:92px;height:92px;border-radius:12px;background:#f2f4f7;object-fit:cover}
+          .cms-media-field{grid-column:1/-1;padding:16px;border:1px solid #e7ebf0;border-radius:16px;background:linear-gradient(180deg,#fbfcfe,#f8fafc)}.cms-media-field>label{font-size:13px;margin-bottom:10px}
+          .cms-media-box{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:16px;align-items:center}.cms-media-preview{width:180px;height:120px;object-fit:cover;border-radius:14px;border:1px solid #e2e7ed;background:#f2f4f7;box-shadow:0 6px 18px rgba(16,24,40,.07)}
+          .cms-media-field .dz-row{margin-top:12px}.cms-media-field .dz-row input{background:#fff}.campaign-actions{margin-top:14px}.campaign-kicker{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px}.campaign-kicker .pill{font-size:10px}
+          #recruitment .panel,#campaigns .panel{overflow:hidden}#recruitment .banner{border-radius:12px}.section.active{animation:adminSectionIn .18s ease-out}@keyframes adminSectionIn{from{opacity:.72;transform:translateY(3px)}to{opacity:1;transform:none}}
+          .msg{min-height:18px;font-weight:700;color:#15703f}.msg:empty{display:block}input[type=checkbox]{accent-color:var(--admin-accent)}:focus-visible{outline:3px solid rgba(159,18,57,.24);outline-offset:2px}
           @media(max-width:900px){.wrap{padding:20px 16px 36px}.layout{grid-template-columns:1fr}.tabs{position:sticky;top:78px;z-index:15;max-height:none;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.tab-group{grid-column:1/-1}.cms-media-box{grid-template-columns:1fr}.cms-media-preview{width:100%;height:180px}}
           @media(max-width:560px){.tabs{grid-template-columns:1fr}.cards{grid-template-columns:1fr}.cms-media-preview{height:160px}.panel{padding:17px}}
           '''
-          marker = '/* IURS ADMIN UI V3 — additive visual/UX polish. */'
+          marker='/* IURS ADMIN UI V3 — additive visual/UX polish. */'
           if marker not in s:
-              s = s.replace('</style>', css + '\n</style>', 1)
-
-          # Make the two recruitment media controls more explicit for accessibility
-          # and discoverability without changing their IDs/API contract.
-          replacements = {
-            'Click to choose a recruitment image':'Upload recruitment banner / photo',
-            'Click to choose a campaign image':'Upload campaign banner / photo',
-            'Filled in automatically after upload, or paste an external image URL':'Uploaded image path (or paste an external image URL)',
-          }
-          for a,b in replacements.items():
+              s=s.replace('</style>',css+'\n</style>',1)
+          for a,b in {
+              'Click to choose a recruitment image':'Upload recruitment banner / photo',
+              'Click to choose a campaign image':'Upload campaign banner / photo',
+              'Filled in automatically after upload, or paste an external image URL':'Uploaded image path (or paste an external image URL)'
+          }.items():
               s=s.replace(a,b)
-
           p.write_text(s,encoding='utf-8')
+          PY
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
