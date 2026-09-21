@@ -1,0 +1,63 @@
+name: Fix event edit form
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch optional event URLs and image preview
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('public/admin.html')
+          s = p.read_text(encoding='utf-8')
+          old = '<label>Details URL</label><input id="el" type="url">'
+          new = '<label>Details URL <small class="muted">(optional)</small></label><input id="el" type="text" inputmode="url" autocomplete="url" placeholder="https://…">'
+          if old in s: s = s.replace(old, new, 1)
+          old = '<label>Registration URL</label><input id="er" type="url">'
+          new = '<label>Registration URL <small class="muted">(optional)</small></label><input id="er" type="text" inputmode="url" autocomplete="url" placeholder="https://…">'
+          if old in s: s = s.replace(old, new, 1)
+          old = "function resetEvent(){['eventId','et','ed','etime','ev','ei','el','er','ex'].forEach(x=>$(x).value='');$('es').value='upcoming';$('esover').value='';$('efeat').checked=false}"
+          new = "function resetEvent(){['eventId','et','ed','etime','ev','ei','el','er','ex'].forEach(x=>$(x).value='');$('es').value='upcoming';$('esover').value='';$('efeat').checked=false;$('eventFile').value='';$('eventPrev').removeAttribute('src');$('eventPrev').hidden=true;$('eventProg').hidden=true} function cleanOptionalUrl(value){return String(value||'').trim()} function showEventImagePreview(value){const src=cleanOptionalUrl(value),img=$('eventPrev');if(!src){img.removeAttribute('src');img.hidden=true;return}img.hidden=false;img.src=src;img.onerror=function(){img.hidden=true}}"
+          if old not in s: raise SystemExit('resetEvent block not found')
+          s = s.replace(old, new, 1)
+          old = "window.editEvent=id=>{const e=events.find(x=>x.id===id);$('eventId').value=e.id;$('et').value=e.title;$('ed').value=e.event_date||'';$('etime').value=e.event_time||'';$('ev').value=e.venue||'';$('es').value=e.status;$('esover').value=e.status_override||'';$('efeat').checked=!!+e.featured;$('ei').value=e.image_url||'';$('el').value=e.link_url||'';$('er').value=e.registration_url||'';$('ex').value=e.description||'';scrollTo(0,0)};"
+          new = "window.editEvent=id=>{const e=events.find(x=>x.id===id);if(!e)return;$('eventId').value=e.id;$('et').value=e.title||'';$('ed').value=e.event_date||'';$('etime').value=e.event_time||'';$('ev').value=e.venue||'';$('es').value=e.status||'upcoming';$('esover').value=e.status_override||'';$('efeat').checked=!!+e.featured;$('ei').value=cleanOptionalUrl(e.image_url);$('el').value=cleanOptionalUrl(e.link_url);$('er').value=cleanOptionalUrl(e.registration_url);$('ex').value=e.description||'';$('eventFile').value='';showEventImagePreview(e.image_url);scrollTo(0,0)};"
+          if old not in s: raise SystemExit('editEvent block not found')
+          s = s.replace(old, new, 1)
+          old = "const data={title:et.value,date:ed.value,time:etime.value,venue:ev.value,status:es.value,statusOverride:esover.value||null,featured:efeat.checked,imageUrl:ei.value,linkUrl:el.value,registrationUrl:er.value,description:ex.value};"
+          new = "const data={title:et.value,date:ed.value,time:etime.value,venue:ev.value,status:es.value,statusOverride:esover.value||null,featured:efeat.checked,imageUrl:cleanOptionalUrl(ei.value),linkUrl:cleanOptionalUrl(el.value),registrationUrl:cleanOptionalUrl(er.value),description:ex.value};"
+          if old not in s: raise SystemExit('event submit block not found')
+          s = s.replace(old, new, 1)
+          needle = "attachUploader({drop:'eventDrop',file:'eventFile',target:'ei',prev:'eventPrev',msg:'eventMsg',prog:'eventProg',noun:'event image',endpoint:'/api/admin/events/upload'});"
+          if needle not in s: raise SystemExit('event uploader block not found')
+          s = s.replace(needle, needle + "$('ei').addEventListener('input',function(){showEventImagePreview(this.value)});", 1)
+          p.write_text(s, encoding='utf-8')
+      - name: Verify JavaScript syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('public/admin.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S)
+          Path('/tmp/admin-script.js').write_text(blocks[-1],encoding='utf-8')
+          PY
+          node --check /tmp/admin-script.js
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/admin.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: make event edit form safe for optional URLs'
+          git push origin main
