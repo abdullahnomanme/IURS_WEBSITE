@@ -18,27 +18,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Repair Worker source only when syntax proves it is needed
+      - name: Validate and repair Worker as an ES module
         shell: python
         run: |
           from pathlib import Path
           import subprocess
           p = Path('src/index.js')
           s = p.read_text(encoding='utf-8')
-          check = subprocess.run(['node', '--check', str(p)], capture_output=True, text=True)
-          if check.returncode == 0:
-              print('Worker source syntax is valid; no repair needed.')
+          def check(text):
+              return subprocess.run(['node', '--input-type=module', '--check'], input=text, capture_output=True, text=True)
+          current = check(s)
+          if current.returncode == 0:
+              print('Worker ES-module syntax is valid; no repair needed.')
           elif s.rstrip().endswith('};'):
               fixed = s.rstrip()[:-2] + '}\n'
+              repaired = check(fixed)
+              if repaired.returncode:
+                  print(repaired.stderr)
+                  raise SystemExit(repaired.returncode)
               p.write_text(fixed, encoding='utf-8')
-              check2 = subprocess.run(['node', '--check', str(p)], capture_output=True, text=True)
-              if check2.returncode:
-                  print(check2.stderr)
-                  raise SystemExit(check2.returncode)
-              print('Removed the extra final object brace; Worker source now passes node --check.')
+              print('Removed the extra final object brace; Worker now parses as an ES module.')
           else:
-              print(check.stderr)
-              raise SystemExit(check.returncode)
+              print(current.stderr)
+              raise SystemExit(current.returncode)
 
       - name: Commit repaired source
         shell: bash
@@ -50,5 +52,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/index.js
-          git commit -m "fix: correct Worker module closure"
+          git commit -m "fix: correct Worker ES module closure"
           git push origin HEAD:main
