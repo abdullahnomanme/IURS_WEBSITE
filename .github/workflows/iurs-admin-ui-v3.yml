@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   patch:
-    if: "!contains(github.event.head_commit.message, 'IURS Admin UI v3')"
+    if: "!contains(github.event.head_commit.message, 'chore(admin): apply v3')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,5 +33,5 @@ jobs:
           git add public/admin.html .github/workflows/iurs-admin-ui-v3.yml
           git rm .github/workflows/iurs-admin-ui-v3.yml
           git diff --cached --quiet && exit 0
-          git commit -m "IURS Admin UI v3"
+          git commit -m "chore(admin): apply v3"
           git push
