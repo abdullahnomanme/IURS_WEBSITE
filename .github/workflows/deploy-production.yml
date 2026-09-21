@@ -13,6 +13,10 @@ concurrency:
   group: production-deploy
   cancel-in-progress: false
 
+env:
+  # Production is always deployed from the exact GitHub commit checked out by this run.
+  IURS_WORKER: iurs-website
+
 jobs:
   verify-and-deploy:
     name: Verify and deploy production
@@ -64,5 +68,5 @@ jobs:
         run: |
           echo "Production deployment completed."
           echo "Git commit: $GITHUB_SHA"
-          echo "Worker: iurs-website"
+          echo "Worker: $IURS_WORKER"
           echo "Production URL: https://iurs.org.bd/"
