@@ -43,6 +43,19 @@
 .nb-item[data-level="normal"] .nb-pill{background:#f4e7ea;color:var(--primaryColor)}
 .nb-pin{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--primaryColor);
   display:inline-flex;align-items:center;gap:5px}
+.nb-cat{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--bodyColor);
+  background:var(--shadeColor);border:1px solid var(--borderColor);border-radius:999px;padding:3px 10px;
+  display:inline-flex;align-items:center;gap:5px}
+.nb-feat{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a5200;
+  background:#fdf3e3;border-radius:999px;padding:3px 10px;display:inline-flex;align-items:center;gap:5px}
+.nb-featured{margin-bottom:26px}
+.nb-featured-label{font-family:var(--font-heading);font-size:12.5px;font-weight:800;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--primaryColor);display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.nb-featured-label::after{content:"";flex:1;height:1px;background:var(--borderColor)}
+.nb-item.is-featured{border:1px solid rgba(217,130,0,.4);background:linear-gradient(180deg,#fffdf6,#fff);
+  box-shadow:0 12px 34px rgba(217,130,0,.09)}
+.nb-item.is-featured .nb-stripe{background:linear-gradient(180deg,#d98200,#c02020)}
+.nb-item.is-featured .nb-title{font-size:20px}
 .nb-date{font-size:12.5px;color:var(--bodyColor);display:inline-flex;align-items:center;gap:6px;margin-left:auto}
 .nb-title{font-family:var(--font-heading);font-size:18.5px;font-weight:700;color:var(--titleColor);
   margin:0 0 8px;line-height:1.45}

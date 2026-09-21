@@ -357,13 +357,13 @@
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  function noticeItem(row) {
+  function noticeItem(row, extraClass) {
     var level = LEVEL_LABEL[row.level] ? row.level : 'normal';
     var img = safeSrc(row.image_url);
     var file = safeSrc(row.attachment_url);
     var link = safeSrc(row.link_url);
     var d = document.createElement('article');
-    d.className = 'nb-item reveal';
+    d.className = 'nb-item reveal' + (extraClass || '');
     d.setAttribute('data-level', level);
     d.setAttribute('data-search', String((row.title || '') + ' ' + (row.body || '')).toLowerCase());
     d.innerHTML =
@@ -371,6 +371,8 @@
       '<div class="nb-body">' +
         '<div class="nb-top">' +
           '<span class="nb-pill">' + esc(LEVEL_LABEL[level]) + '</span>' +
+          (row.category ? '<span class="nb-cat"><i class="fas fa-tag"></i> ' + esc(row.category) + '</span>' : '') +
+          (Number(row.featured) ? '<span class="nb-feat"><i class="fas fa-star"></i> Featured</span>' : '') +
           (Number(row.pinned) ? '<span class="nb-pin"><i class="fas fa-thumbtack"></i> Pinned</span>' : '') +
           '<span class="nb-date"><i class="far fa-calendar"></i> ' + esc(noticeDate(row)) + '</span>' +
         '</div>' +
@@ -400,17 +402,39 @@
           'Announcements posted from the dashboard appear here immediately.</div>';
         return;
       }
+      /* ONE prominent Featured/Important area at the top (not a wall of large
+         cards): the featured notices render full-width there and are excluded
+         from the plain list below, so nothing shows twice. Notices without the
+         featured flag stay in the clean, compact list. */
+      var featured = rows.filter(function (r) { return +r.featured === 1; }).slice(0, 2);
+      var featIds = {};
+      featured.forEach(function (r) { featIds[r.id] = 1; });
+      var rest = rows.filter(function (r) { return !featIds[r.id]; });
+
       board.innerHTML = '';
-      rows.forEach(function (r) { board.appendChild(noticeItem(r)); });
+      if (featured.length) {
+        var featWrap = document.createElement('div');
+        featWrap.className = 'nb-featured';
+        featWrap.innerHTML = '<div class="nb-featured-label"><i class="fas fa-bullhorn"></i> Featured Announcement' +
+          (featured.length > 1 ? 's' : '') + '</div>';
+        featured.forEach(function (r) { featWrap.appendChild(noticeItem(r, ' is-featured')); });
+        board.appendChild(featWrap);
+      }
+      var plain = document.createElement('div');
+      plain.className = 'nb-plain';
+      rest.forEach(function (r) { plain.appendChild(noticeItem(r)); });
+      board.appendChild(plain);
       reveal(board.querySelectorAll('.reveal:not(.visible)'));
 
       /* Filter and search work on what is already rendered, so they stay instant
-         and keep working even if the network drops after the first load. */
+         and keep working even if the network drops after the first load. They
+         scope to the plain list so the Featured area is never hidden by a
+         filter — it is editorial, not search results. */
       var level = 'all';
       var term = '';
       var apply = function () {
         var shown = 0;
-        var items = board.querySelectorAll('.nb-item');
+        var items = plain.querySelectorAll('.nb-item');
         for (var i = 0; i < items.length; i++) {
           var okLevel = level === 'all' || items[i].getAttribute('data-level') === level;
           var okTerm = !term || items[i].getAttribute('data-search').indexOf(term) !== -1;
@@ -451,19 +475,125 @@
     });
   }
 
-  /* The homepage hero panel listed four notices as hard-coded HTML, so anything
-     posted from the dashboard never showed up there. */
+  /* The homepage notice panel: ONE prominent Featured/Important notice (when the
+     committee has flagged one) followed by a clean, compact latest-list with
+     date and status dot — never a stack of large cards. Honors the Homepage
+     Manager: show_on_homepage decides eligibility, homepageNoticeCount caps the
+     list, and featuredNoticeId pins which notice gets the prominent slot
+     (otherwise the first notice flagged featured wins). The "View all notices"
+     link below the list is static markup and always survives. */
   function bindHomeNotices() {
     var list = document.querySelector('.hero-panel-card .notice-list');
     if (!list) return;
-    getJSON('/api/public/notices').then(function (rows) {
-      if (!Array.isArray(rows) || !rows.length) return; // keep the static rows
-      list.innerHTML = rows.slice(0, 4).map(function (r) {
-        var level = LEVEL_LABEL[r.level] ? r.level : 'normal';
-        return '<div class="notice-row"><span class="ndot ' + level + '"></span>' +
-          '<span>' + esc(r.title || '') + ' — ' + esc(noticeDate(r)) + '</span></div>';
-      }).join('');
+    var card = list.closest('.hero-panel-card');
+
+    Promise.all([getJSON('/api/public/notices'), getJSON('/api/public/homepage')]).then(function (res) {
+      var rows = Array.isArray(res[0]) ? res[0] : [];
+      var hp = (res[1] && typeof res[1] === 'object') ? res[1] : {};
+      rows = rows.filter(function (r) { return +r.show_on_homepage !== 0; });
+      if (!rows.length) return; // keep the static rows
+
+      var count = hp.homepageNoticeCount > 0 ? Math.min(hp.homepageNoticeCount, 10) : 4;
+      var featIdx = -1;
+      if (hp.featuredNoticeId) {
+        for (var i = 0; i < rows.length; i++) { if (+rows[i].id === +hp.featuredNoticeId) { featIdx = i; break; } }
+      }
+      if (featIdx === -1) {
+        for (var j = 0; j < rows.length; j++) { if (+rows[j].featured === 1) { featIdx = j; break; } }
+      }
+
+      var featured = featIdx >= 0 ? rows[featIdx] : null;
+      var pool = rows.filter(function (_, i) { return i !== featIdx; }).slice(0, count);
+      if (!featured && !pool.length) return;
+
+      var oldFeat = card ? card.querySelector('.notice-featured') : null;
+      if (oldFeat) oldFeat.parentNode.removeChild(oldFeat);
+
+      if (featured) {
+        var level = LEVEL_LABEL[featured.level] ? featured.level : 'normal';
+        var a = document.createElement('a');
+        a.className = 'notice-featured';
+        a.href = 'notices.html';
+        a.innerHTML =
+          '<span class="nf-badge"><i class="fas fa-star"></i> Featured · ' + esc(LEVEL_LABEL[level]) + '</span>' +
+          '<span class="nf-title">' + esc(featured.title || '') + '</span>' +
+          '<span class="nf-date"><i class="far fa-calendar"></i> ' + esc(noticeDate(featured)) + '</span>';
+        list.parentNode.insertBefore(a, list);
+      }
+
+      if (pool.length) {
+        list.innerHTML = pool.map(function (r) {
+          var lv = LEVEL_LABEL[r.level] ? r.level : 'normal';
+          return '<div class="notice-row"><span class="ndot ' + lv + '"></span>' +
+            '<span>' + esc(r.title || '') + ' — ' + esc(noticeDate(r)) + '</span></div>';
+        }).join('');
+      }
     }).catch(function (e) { console.warn('[IURS] home notices kept static:', e.message); });
+  }
+
+  /* ---------------- index.html: Homepage Manager ----------------
+     Consumes /api/public/homepage so the committee controls the hero wording
+     and which homepage sections appear, in what order, without editing code.
+     Sections the static homepage has no block for (blog, gallery, training,
+     alumni) are simply inapplicable — the setting stays harmless. */
+  var HOME_SECTIONS = {
+    hero: '#home', about: '#about', stats: '.stats-bar',
+    notices: '.hero-panel-card .notice-list', events: '#events',
+    publications: '#publications', committee: '#executive'
+  };
+
+  function bindHomepage() {
+    if (!document.getElementById('home')) return;
+    getJSON('/api/public/homepage').then(function (hp) {
+      if (!hp || typeof hp !== 'object') return;
+
+      if (hp.heroTitle) {
+        var t = document.querySelector('.hero-tagline');
+        if (t) t.textContent = hp.heroTitle;
+      }
+      if (hp.heroSubtitle) {
+        var d = document.querySelector('.hero-desc');
+        if (d) d.textContent = hp.heroSubtitle;
+      }
+
+      var secs = (hp.sections && typeof hp.sections === 'object') ? hp.sections : {};
+      var order = Array.isArray(hp.order) ? hp.order : [];
+      var keyed = [];
+      Object.keys(HOME_SECTIONS).forEach(function (key) {
+        var el = document.querySelector(HOME_SECTIONS[key]);
+        if (!el) return;
+        /* The notices selector matches the inner list; hide its whole card. */
+        if (key === 'notices') el = el.closest('.hero-panel-card') || el;
+        if (secs[key] === false) { el.style.display = 'none'; return; }
+        var rank = order.indexOf(key);
+        keyed.push({ el: el, rank: rank === -1 ? Infinity : rank });
+      });
+
+      /* Reorder ranked sections relative to each other, grouped by parent, so
+         unmapped blocks (research, voices, news, CTA) keep their designed
+         positions and the notices panel (inside the hero) never collides with
+         body-level sections. */
+      try {
+        if (keyed.length > 1) {
+          var groups = {};
+          keyed.forEach(function (k) {
+            if (k.rank === Infinity) return;
+            var pid = k.el.parentNode === document.body ? 'body' :
+              String(k.el.parentNode && (k.el.parentNode.id || k.el.parentNode.className || 'x'));
+            (groups[pid] = groups[pid] || []).push(k);
+          });
+          Object.keys(groups).forEach(function (pid) {
+            var g = groups[pid];
+            if (g.length < 2) return;
+            var parent = g[0].el.parentNode;
+            if (!g.every(function (k) { return k.el.parentNode === parent; })) return;
+            g.sort(function (a, b) { return a.rank - b.rank; });
+            var anchor = g[0].el;
+            for (var i = g.length - 1; i >= 0; i--) parent.insertBefore(g[i].el, anchor);
+          });
+        }
+      } catch (e) { console.warn('[IURS] homepage order kept static:', e.message); }
+    }).catch(function (e) { console.warn('[IURS] homepage settings kept static:', e.message); });
   }
 
   /* ---------------- alumni.html ---------------- */
@@ -693,7 +823,8 @@
       box.className = 'iu-window ' + (r.open ? 'open' : 'shut');
       box.hidden = false;
       var state = document.getElementById('j-window-state');
-      if (state) state.textContent = r.open ? 'Applications are open' : 'Applications are closed';
+      if (state) state.textContent = (r.open ? 'Applications are open' : 'Applications are closed') +
+        (r.code ? ' · Campaign ' + esc(r.code) : '');
       var dates = document.getElementById('j-window-dates');
       if (dates) {
         var parts = [];
@@ -705,6 +836,8 @@
       if (wm) wm.textContent = r.message || '';
       var title = document.getElementById('j-window-title');
       if (title && r.title) title.textContent = r.title;
+      var label = document.getElementById('j-window-label');
+      if (label) label.textContent = r.code ? ('Membership Application · Campaign ' + r.code) : 'Membership Application';
     }
 
     function paintFee(r) {
@@ -864,122 +997,3 @@
     '.iu-chat-form button[disabled]{opacity:.55;cursor:not-allowed}' +
     '.iu-chat .iu-vh{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}' +
     '@media(max-width:520px){.iu-chat{right:10px;left:10px;width:auto;bottom:78px;height:calc(100vh - 150px)}.iu-chat-btn{right:12px;bottom:12px}}';
-
-  var CHAT_SUGGESTIONS = ['How do I join IURS?', 'Who is on the executive committee?',
-    'What has IURS published?', 'Any upcoming events?', 'What training does IURS run?'];
-
-  function bindChat() {
-    // Public site only — never on the dashboard, login or setup pages.
-    if (/\/(admin|login|setup|dashboard)\.html$/.test(location.pathname)) return;
-    if (document.querySelector('.iu-chat-btn')) return;
-
-    var style = document.createElement('style');
-    style.textContent = CHAT_CSS;
-    document.head.appendChild(style);
-
-    var btn = document.createElement('button');
-    btn.className = 'iu-chat-btn';
-    btn.type = 'button';
-    btn.setAttribute('aria-label', 'Ask about IURS');
-    btn.setAttribute('aria-expanded', 'false');
-    btn.innerHTML = '<i class="fas fa-comment-dots"></i>';
-
-    var panel = document.createElement('section');
-    panel.className = 'iu-chat';
-    panel.setAttribute('aria-label', 'IURS assistant');
-    panel.innerHTML =
-      '<div class="iu-chat-head"><img alt="" src="assets/logo-iurs.webp">' +
-        '<div><b>Ask IURS</b><small>Answers from this website only</small></div>' +
-        '<button aria-label="Close" type="button">&times;</button></div>' +
-      '<div class="iu-chat-log" id="iu-chat-log" aria-live="polite"></div>' +
-      '<form class="iu-chat-form"><label class="iu-vh" for="iu-chat-input">Your question</label>' +
-        '<input autocomplete="off" id="iu-chat-input" maxlength="500" placeholder="Ask about IURS…">' +
-        '<button aria-label="Send" type="submit"><i class="fas fa-paper-plane"></i></button></form>';
-
-    document.body.appendChild(btn);
-    document.body.appendChild(panel);
-
-    var log = panel.querySelector('#iu-chat-log');
-    var form = panel.querySelector('form');
-    var input = panel.querySelector('input');
-    var send = form.querySelector('button');
-
-    function say(text, who) {
-      var p = document.createElement('p');
-      p.className = who;
-      p.textContent = text;
-      log.appendChild(p);
-      log.scrollTop = log.scrollHeight;
-      return p;
-    }
-
-    function suggestions() {
-      var wrap = document.createElement('div');
-      wrap.className = 'iu-chat-sug';
-      CHAT_SUGGESTIONS.forEach(function (q) {
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = q;
-        b.onclick = function () { wrap.remove(); ask(q); };
-        wrap.appendChild(b);
-      });
-      log.appendChild(wrap);
-    }
-
-    var busy = false;
-    function ask(q) {
-      if (busy || !q) return;
-      busy = true;
-      send.disabled = true;
-      say(q, 'me');
-      input.value = '';
-      var thinking = say('…', 'bot');
-      fetch('/api/public/chat', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message: q })
-      }).then(function (r) {
-        return r.json().catch(function () { return {}; });
-      }).then(function (d) {
-        thinking.textContent = d.reply || d.error ||
-          'I could not reach the IURS records just now. Please email iuresearchsociety@gmail.com.';
-      }).catch(function () {
-        thinking.textContent = 'I could not reach the IURS records just now. Please email iuresearchsociety@gmail.com.';
-      }).then(function () {
-        busy = false;
-        send.disabled = false;
-        log.scrollTop = log.scrollHeight;
-      });
-    }
-
-    var greeted = false;
-    function toggle(open) {
-      panel.classList.toggle('open', open);
-      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      btn.innerHTML = open ? '<i class="fas fa-xmark"></i>' : '<i class="fas fa-comment-dots"></i>';
-      if (open && !greeted) {
-        greeted = true;
-        say('Assalamu alaikum. I can answer questions about IURS using the information on this ' +
-            'website — publications, events, training, notices, the executive committee, alumni and ' +
-            'how to join. If something is not on the site I will say so rather than guess.', 'bot');
-        suggestions();
-      }
-      if (open) setTimeout(function () { input.focus(); }, 120);
-    }
-
-    btn.onclick = function () { toggle(!panel.classList.contains('open')); };
-    panel.querySelector('.iu-chat-head button').onclick = function () { toggle(false); };
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && panel.classList.contains('open')) { toggle(false); btn.focus(); }
-    });
-    form.onsubmit = function (e) { e.preventDefault(); ask(input.value.trim()); };
-  }
-
-  function start() {
-    bindGallery(); bindTraining(); bindCommittee(); bindAlumni();
-    bindBlog(); bindPublications(); bindJoin(); bindChat();
-    bindNoticeBoard(); bindHomeNotices();
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
-  else start();
-})();
