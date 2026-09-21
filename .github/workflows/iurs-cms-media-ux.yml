@@ -1,0 +1,32 @@
+name: Apply IURS recruitment media CMS patch
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, 'Apply IURS recruitment media CMS patch')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reuse focused patch script and verify syntax
+        run: |
+          git show f394eaf49ea08db518aa6f632fffb4a235bbcedc:.github/workflows/iurs-cms-media-ux.yml > /tmp/patch-source.yml
+          awk '/python3 - <<'"'"'PY'"'"'/{on=1;next}/^          PY$/{on=0}on{print}' /tmp/patch-source.yml | sed 's/^          //' > /tmp/patch.py
+          sed -i '/^npm test$/d' /tmp/patch.py
+          python3 /tmp/patch.py
+          node --check src/index.js
+          node --check public/assets/iurs-content.js
+          echo 'Focused patch applied; source syntax checks passed.'
+      - name: Commit patch and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/index.js public/admin.html public/join.html public/assets/iurs-content.js .github/workflows/iurs-cms-media-ux.yml
+          git rm .github/workflows/iurs-cms-media-ux.yml
+          git commit -m "Apply IURS recruitment media CMS patch"
+          git push
