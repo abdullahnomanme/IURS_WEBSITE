@@ -18,19 +18,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Restore missing Worker module closure if needed
-        id: repair
+      - name: Repair Worker source only when syntax proves it is needed
         shell: python
         run: |
           from pathlib import Path
+          import subprocess
           p = Path('src/index.js')
           s = p.read_text(encoding='utf-8')
-          stripped = s.rstrip()
-          if stripped.endswith('};'):
-              print('Worker closure already present; no change needed.')
+          check = subprocess.run(['node', '--check', str(p)], capture_output=True, text=True)
+          if check.returncode == 0:
+              print('Worker source syntax is valid; no repair needed.')
+          elif s.rstrip().endswith('};'):
+              fixed = s.rstrip()[:-2] + '}\n'
+              p.write_text(fixed, encoding='utf-8')
+              check2 = subprocess.run(['node', '--check', str(p)], capture_output=True, text=True)
+              if check2.returncode:
+                  print(check2.stderr)
+                  raise SystemExit(check2.returncode)
+              print('Removed the extra final object brace; Worker source now passes node --check.')
           else:
-              p.write_text(stripped + '\n}\n};\n', encoding='utf-8')
-              print('Restored the missing fetch-handler/object closure.')
+              print(check.stderr)
+              raise SystemExit(check.returncode)
 
       - name: Commit repaired source
         shell: bash
@@ -42,5 +50,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/index.js
-          git commit -m "fix: restore missing Worker module closure"
+          git commit -m "fix: correct Worker module closure"
           git push origin HEAD:main
