@@ -57,6 +57,33 @@ async function getRecruitment(env){
   return {...RECRUITMENT_DEFAULTS,...(saved&&typeof saved==='object'?saved:{})};
  }catch(e){console.error('recruitment settings unreadable, using defaults',e);return {...RECRUITMENT_DEFAULTS}}
 }
+/* Site-wide identity & contact settings: the footer, the contact page and the
+   social links all read from this blob. Everything stored here is public
+   information by design, so the public endpoint can serve the same blob the
+   admin edits — nothing secret ever lives in this key. */
+const SITE_SETTINGS_KEY='site';
+const SITE_DEFAULTS={
+ orgName:'IURS',
+ orgSubtitle:'Islamic University Research Society',
+ about:'A premier academic research organization at Islamic University, Kushtia, dedicated to advancing knowledge, fostering innovation, and nurturing the next generation of researchers and leaders.',
+ email:'iuresearchsociety@gmail.com',
+ phone:'+8801749022577',
+ address:'TSCC, Islamic University, Kushtia-7003',
+ hours:'Sat – Thu: 9:00 AM – 5:00 PM',
+ website:'https://iurs.org.bd',
+ facebook:'https://www.facebook.com/iuresearchsociety/',
+ linkedin:'',
+ youtube:'',
+ x:''
+};
+async function getSiteSettings(env){
+ try{
+  const row=await env.DB.prepare('SELECT value FROM site_settings WHERE key=?').bind(SITE_SETTINGS_KEY).first();
+  if(!row||!row.value)return {...SITE_DEFAULTS};
+  const saved=JSON.parse(row.value);
+  return {...SITE_DEFAULTS,...(saved&&typeof saved==='object'?saved:{})};
+ }catch(e){console.error('site settings unreadable, using defaults',e);return {...SITE_DEFAULTS}}
+}
 /* "Open" means the switch is on AND today is inside the window. An empty date is
    deliberately treated as no bound rather than as a failed comparison, so the
    admin can open recruitment without committing to an end date. */
@@ -70,9 +97,49 @@ function recruitmentIsOpen(s,today){
 function publicRecruitment(s){
  const open=recruitmentIsOpen(s);
  return {open,title:s.title,message:open?s.openMessage:s.closedMessage,opensOn:s.opensOn||null,closesOn:s.closesOn||null,
+  campaignId:s.campaignId||null,code:s.code||null,
   fee:s.fee||'',currency:s.currency||'BDT',feeNote:s.feeNote||'',requirePayment:!!s.requirePayment,
   methods:String(s.methods||'').split(',').map(x=>x.trim()).filter(Boolean),
   payTo:s.payTo||'',payToLabel:s.payToLabel||''};
+}
+/* ---------------------------------------------------------------------------
+   Event status. Whether an event is "upcoming" or "past" is a function of
+   TODAY, not of a value typed into the database months ago. The old code stored
+   status='upcoming' once and never revisited it, so "Member Recruitment 4.1"
+   (dated 2026-01-01) was still advertised as Upcoming in September 2026. The
+   status is now computed from the current server date on every read. An
+   administrator can still force a status through `status_override` for the rare
+   case the date is wrong, the event is cancelled, or registration stays open
+   after the event date.
+   --------------------------------------------------------------------------- */
+const EVENT_STATUSES=['upcoming','past','cancelled'];
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function effectiveEventStatus(row,today){
+ const t=today||todayStr();
+ const ov=String((row&&row.status_override)||'').toLowerCase();
+ if(ov==='cancelled')return 'cancelled';
+ if(ov==='upcoming'||ov==='past')return ov;
+ const d=row&&row.event_date?String(row.event_date).slice(0,10):'';
+ if(/^\d{4}-\d{2}-\d{2}$/.test(d))return d>=t?'upcoming':'past';
+ // No usable date: fall back to the stored legacy status, else treat as upcoming.
+ const legacy=String((row&&row.status)||'').toLowerCase();
+ return EVENT_STATUSES.includes(legacy)?legacy:'upcoming';
+}
+function withEventStatus(row,today){
+ if(!row)return row;
+ const s=effectiveEventStatus(row,today);
+ return {...row,status:s,effective_status:s,is_upcoming:s==='upcoming'};
+}
+/* Upcoming events soonest-first, then past/cancelled most-recent-first. Sorting
+   happens in JS because the effective status is computed, not stored. */
+function sortEvents(rows,today){
+ const t=today||todayStr();
+ const list=(rows||[]).map(r=>withEventStatus(r,t));
+ const up=list.filter(r=>r.status==='upcoming')
+  .sort((a,b)=>String(a.event_date||'9999-99-99').localeCompare(String(b.event_date||'9999-99-99')));
+ const rest=list.filter(r=>r.status!=='upcoming')
+  .sort((a,b)=>String(b.event_date||'').localeCompare(String(a.event_date||''))||b.id-a.id);
+ return [...up,...rest];
 }
 /* Every API answer is private and must never be cached. Without this Cloudflare's edge
    happily stored /api/auth/me for an hour: an administrator who had already changed
@@ -113,7 +180,15 @@ async function ensureSchema(env){
       `CREATE INDEX IF NOT EXISTS idx_publications_category_year ON publications(category,publication_year DESC)`,
       `CREATE INDEX IF NOT EXISTS idx_events_status_date ON events(status,event_date)`,
       `CREATE INDEX IF NOT EXISTS idx_notices_published_created ON notices(published,created_at DESC)`,
-      `INSERT OR IGNORE INTO site_stats(key,value,label) VALUES ('members','459+','Community Members'),('research_outputs','7','Research Outputs'),('workshops','6+','Workshops & Training'),('peer_reviewed','4','Peer-reviewed Articles'),('working_papers','10+','Working Papers'),('under_review','3+','Manuscripts Under Review'),('best_paper','1','Best Paper Award')`,
+      /* Only the counters that genuinely cannot be derived from a table are seeded
+         here (working papers and manuscripts under review are not modelled as rows,
+         and the best-paper award is a fact about the society). The headline figures
+         — community members, research outputs, peer-reviewed articles and workshops
+         — are now computed live from the database by publicStats(), so a fresh
+         install never ships a hard-coded "459+". An administrator can still pin any
+         of them by saving a value in the Statistics panel, which then wins over the
+         derived number. Existing production rows are left untouched. */
+      `INSERT OR IGNORE INTO site_stats(key,value,label) VALUES ('working_papers','10+','Working Papers'),('under_review','3+','Manuscripts Under Review'),('best_paper','1','Best Paper Award')`,
       // Single place for switches the admin can flip, e.g. whether recruitment is open.
       `CREATE TABLE IF NOT EXISTS site_settings (key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
       `CREATE TABLE IF NOT EXISTS login_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT,attempt_key TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -138,7 +213,20 @@ async function ensureSchema(env){
          bytes in D1 is not how you would store a photo library, but a committee photo
          is a few tens of kilobytes and this makes the feature work with no setup at
          all. When R2 is available it is still preferred — see putUpload below. */
-      `CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY,content_type TEXT NOT NULL,bytes BLOB NOT NULL,size INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`
+      `CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY,content_type TEXT NOT NULL,bytes BLOB NOT NULL,size INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+      /* Homepage Manager. One row per setting key (a JSON blob), so the admin can
+         control which sections show, in what order, and which items are featured,
+         without anything being hard-coded into index.html. */
+      `CREATE TABLE IF NOT EXISTS homepage_settings (key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+      /* Audit trail. Every admin mutation records who did what and when, so a
+         mistaken delete or a privilege problem can be traced after the fact. */
+      `CREATE TABLE IF NOT EXISTS activity_logs (id INTEGER PRIMARY KEY AUTOINCREMENT,actor_id INTEGER,actor_name TEXT,actor_role TEXT,action TEXT NOT NULL,target_type TEXT,target_id TEXT,detail TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_logs(created_at DESC,id DESC)`,
+      /* Recruitment campaigns. The single site_settings window is kept working for
+         backward compatibility, but campaigns let the admin run a numbered call
+         (4.1, 4.2, ...), open and close it by date, and archive previous ones. */
+      `CREATE TABLE IF NOT EXISTS recruitment_campaigns (id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,code TEXT,open INTEGER NOT NULL DEFAULT 0,opens_on TEXT,closes_on TEXT,fee TEXT,currency TEXT DEFAULT 'BDT',fee_note TEXT,methods TEXT,pay_to TEXT,pay_to_label TEXT,require_payment INTEGER NOT NULL DEFAULT 1,open_message TEXT,closed_message TEXT,archived INTEGER NOT NULL DEFAULT 0,sort_order INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE INDEX IF NOT EXISTS idx_campaigns_active ON recruitment_campaigns(archived,open,sort_order,id)`
     ];
     /* Indexes over columns that ALTER TABLE adds below. They cannot live in `ddl`:
        on a database that predates the column, CREATE TABLE IF NOT EXISTS is a no-op,
@@ -187,13 +275,23 @@ async function ensureSchema(env){
       /* A notice is the one thing that regularly carries a PDF — a circular, a
          results sheet, a form. attachment_url holds it (an uploaded file or a
          pasted link) and attachment_name is what the download button should say. */
-      ['attachment_url','TEXT'],['attachment_name','TEXT'],['pinned','INTEGER NOT NULL DEFAULT 0'],['notice_date','TEXT']],
-      events:[['image_url','TEXT'],['link_url','TEXT'],['registration_url','TEXT'],['updated_at','TEXT']],publications:[['featured','INTEGER NOT NULL DEFAULT 0'],['updated_at','TEXT'],['seed_key','TEXT'],['type_label','TEXT'],['sort_order','INTEGER NOT NULL DEFAULT 0']],executives:[['facebook_url','TEXT']],
+      ['attachment_url','TEXT'],['attachment_name','TEXT'],['pinned','INTEGER NOT NULL DEFAULT 0'],['notice_date','TEXT'],
+      /* CMS notice controls. `featured` drives the one prominent homepage banner;
+         `show_on_homepage` lets the admin choose exactly which notices appear in
+         the homepage list; `expiry_date` makes a notice drop out of the active
+         areas automatically once it is out of date while staying in the archive. */
+      ['featured','INTEGER NOT NULL DEFAULT 0'],['show_on_homepage','INTEGER NOT NULL DEFAULT 1'],['expiry_date','TEXT'],['category','TEXT']],
+      /* status_override is the optional manual override for the computed
+         upcoming/past status (see effectiveEventStatus). NULL means "decide from
+         the event date", which is what every existing row should do. */
+      events:[['image_url','TEXT'],['link_url','TEXT'],['registration_url','TEXT'],['updated_at','TEXT'],['status_override','TEXT'],['featured','INTEGER NOT NULL DEFAULT 0']],publications:[['featured','INTEGER NOT NULL DEFAULT 0'],['updated_at','TEXT'],['seed_key','TEXT'],['type_label','TEXT'],['sort_order','INTEGER NOT NULL DEFAULT 0']],executives:[['facebook_url','TEXT']],
+      /* A blog post can be promoted to the homepage "featured articles" rail. */
+      blog_posts:[['featured','INTEGER NOT NULL DEFAULT 0']],
       /* Membership fee details. payment_status is kept separate from status so an
          application cannot be approved by accident before the money is checked:
          the admin has to match transaction_id against the receiving account and
          mark it verified, and only then does approving become possible. */
-      applications:[['payment_method','TEXT'],['transaction_id','TEXT'],['payment_amount','TEXT'],['payment_sender','TEXT'],['payment_date','TEXT'],["payment_status","TEXT NOT NULL DEFAULT 'unverified'"],['payment_note','TEXT'],['verified_at','TEXT'],['verified_by','TEXT'],['year_level','TEXT']]};
+      applications:[['payment_method','TEXT'],['transaction_id','TEXT'],['payment_amount','TEXT'],['payment_sender','TEXT'],['payment_date','TEXT'],["payment_status","TEXT NOT NULL DEFAULT 'unverified'"],['payment_note','TEXT'],['verified_at','TEXT'],['verified_by','TEXT'],['year_level','TEXT'],['campaign_id','INTEGER']]};
     for(const [table,cols] of Object.entries(columns)){
       const info=await env.DB.prepare(`PRAGMA table_info(${table})`).all();const have=new Set((info.results||[]).map(x=>x.name));
       for(const [name,type] of cols) if(!have.has(name)) await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`).run();
@@ -294,6 +392,151 @@ async function putUpload(env,key,buf,contentType){
  try{await env.DB.prepare('INSERT OR REPLACE INTO media_blobs(key,content_type,bytes,size) VALUES(?,?,?,?)').bind(key,contentType,buf,buf.byteLength).run();return{ok:true,where:'d1'}}
  catch(e){console.error('media_blobs put failed',e);return{ok:false,status:502,error:'Upload failed while saving the file. Please try again.'}}}
 
+async function handleAdminImageUpload(req,env,prefix){
+ let form;try{form=await req.formData()}catch{return json({error:'Could not read the uploaded file.'},400)}
+ const file=form.get('file');
+ if(!file||typeof file==='string'||!file.arrayBuffer)return json({error:'Please choose an image file to upload.'},400);
+ if(file.size>UPLOAD_MAX_BYTES)return json({error:`That image is ${(file.size/1048576).toFixed(1)} MB. Please use an image under 8 MB.`},413);
+ if(!file.size)return json({error:'That file is empty.'},400);
+ const buf=await file.arrayBuffer();
+ const real=sniffImage(buf.slice(0,16));
+ if(!real||!UPLOAD_TYPES[real])return json({error:'Only JPG, PNG, WebP, GIF or AVIF images can be uploaded.'},415);
+ const key=`${prefix}/${new Date().getFullYear()}/${b64u(crypto.getRandomValues(new Uint8Array(12)))}.${UPLOAD_TYPES[real]}`;
+ const put=await putUpload(env,key,buf,real);
+ if(!put.ok)return json({error:put.error},put.status);
+ return json({ok:true,url:'/uploads/'+key,contentType:real,bytes:file.size});
+}
+
+/* ---------------------------------------------------------------------------
+   Activity log. Every successful admin mutation is recorded so a mistaken delete
+   or a privilege problem can be traced. Writing the log must never be able to
+   break the request it describes, so failures are swallowed.
+   --------------------------------------------------------------------------- */
+async function logActivity(env,user,action,targetType,targetId,detail){
+ try{
+  await env.DB.prepare('INSERT INTO activity_logs(actor_id,actor_name,actor_role,action,target_type,target_id,detail) VALUES(?,?,?,?,?,?,?)')
+   .bind((user&&user.id)||null,(user&&(user.name||user.iurs_id))||'system',(user&&user.role)||'',cleanText(action,120),cleanText(targetType,60)||null,targetId!=null?cleanText(targetId,60):null,cleanText(detail,500)||null).run();
+ }catch(e){console.error('activity log skipped',e)}
+}
+
+/* ---------------------------------------------------------------------------
+   Statistics. The headline counters are derived from the database so they can
+   never drift from the real content; an administrator may still pin a value in
+   the Statistics panel, and a pinned value wins (the society's true membership
+   figure is a real-world number, not the count of website accounts).
+   --------------------------------------------------------------------------- */
+const DERIVED_STAT_KEYS=['members','research_outputs','peer_reviewed','workshops'];
+async function computeDerivedStats(env){
+ const cnt=async sql=>{try{const r=await env.DB.prepare(sql).first();return Number((r&&(r.c!=null?r.c:r.n))||0)}catch{return 0}};
+ return {
+  members:await cnt("SELECT COUNT(*) c FROM users WHERE status='active'"),
+  research_outputs:await cnt("SELECT COUNT(*) c FROM publications WHERE published_status='published'"),
+  peer_reviewed:await cnt("SELECT COUNT(*) c FROM publications WHERE published_status='published' AND category='peer_reviewed'"),
+  workshops:await cnt("SELECT COUNT(*) c FROM training_sessions WHERE published=1")
+ };
+}
+async function publicStats(env){
+ const rows=((await env.DB.prepare('SELECT key,value,label FROM site_stats').all()).results||[]);
+ const overrides=Object.fromEntries(rows.map(r=>[r.key,r.value]));
+ const derived=await computeDerivedStats(env);
+ const out={};
+ for(const key of STAT_KEYS){
+  const pinned=overrides[key];
+  let value;
+  if(DERIVED_STAT_KEYS.includes(key))
+   value=(pinned!=null&&String(pinned).trim()!=='')?String(pinned):String(derived[key]||0);
+  else
+   value=pinned!=null?String(pinned):'';
+  out[key]={value,label:STAT_LABELS[key]||key,derived:DERIVED_STAT_KEYS.includes(key)&&!(pinned!=null&&String(pinned).trim()!=='')};
+ }
+ return out;
+}
+
+/* ---------------------------------------------------------------------------
+   Homepage Manager. One JSON blob under key 'main' controls section visibility,
+   ordering, the featured notice/event, and how many items each rail shows. The
+   public homepage reads it instead of relying on hard-coded markup.
+   --------------------------------------------------------------------------- */
+const HOMEPAGE_DEFAULTS={
+ sections:{hero:true,about:true,stats:true,notices:true,events:true,publications:true,blog:true,committee:true,gallery:true,training:true,alumni:true},
+ order:['hero','about','stats','notices','events','publications','blog','committee','gallery','training','alumni'],
+ featuredNoticeId:null,featuredEventId:null,
+ homepageNoticeCount:4,featuredBlogLimit:3,featuredPubLimit:6,
+ heroTitle:'',heroSubtitle:''
+};
+async function getHomepage(env){
+ try{
+  const row=await env.DB.prepare("SELECT value FROM homepage_settings WHERE key='main'").first();
+  if(!row||!row.value)return JSON.parse(JSON.stringify(HOMEPAGE_DEFAULTS));
+  const saved=JSON.parse(row.value);
+  return {...JSON.parse(JSON.stringify(HOMEPAGE_DEFAULTS)),...(saved&&typeof saved==='object'?saved:{})};
+ }catch(e){console.error('homepage settings unreadable, using defaults',e);return JSON.parse(JSON.stringify(HOMEPAGE_DEFAULTS))}
+}
+
+/* ---------------------------------------------------------------------------
+   Recruitment campaigns. A campaign is a numbered call for members (4.1, 4.2…)
+   that opens and closes by date. The current campaign is the unarchived one
+   whose window contains today; if none is open the most recent unarchived
+   campaign is shown as closed. When no campaign exists at all the legacy
+   single-window settings in site_settings remain authoritative, so nothing that
+   already works changes behaviour.
+   --------------------------------------------------------------------------- */
+function campaignIsOpen(c,today){
+ if(!c||!c.open)return false;
+ const d=today||todayStr();
+ if(c.opens_on&&d<c.opens_on)return false;
+ if(c.closes_on&&d>c.closes_on)return false;
+ return true;
+}
+function campaignToSettings(c,today){
+ return {
+  open:!!c.open,
+  title:c.title||RECRUITMENT_DEFAULTS.title,
+  closedMessage:c.closed_message||RECRUITMENT_DEFAULTS.closedMessage,
+  openMessage:c.open_message||RECRUITMENT_DEFAULTS.openMessage,
+  opensOn:c.opens_on||'',closesOn:c.closes_on||'',
+  fee:c.fee||'',currency:c.currency||'BDT',feeNote:c.fee_note||'',
+  methods:c.methods||'',payTo:c.pay_to||'',payToLabel:c.pay_to_label||'',
+  requirePayment:!!c.require_payment,
+  campaignId:c.id,code:c.code||''
+ };
+}
+async function getActiveCampaign(env,today){
+ try{
+  const t=today||todayStr();
+  const rows=((await env.DB.prepare('SELECT * FROM recruitment_campaigns WHERE archived=0 ORDER BY sort_order,id DESC').all()).results||[]);
+  if(!rows.length)return null;
+  return rows.find(c=>campaignIsOpen(c,t))||rows[0];
+ }catch(e){console.error('campaign lookup failed',e);return null}
+}
+/* The recruitment window the public site and the Join form should honour right
+   now: the active campaign if one exists, otherwise the legacy settings. */
+async function currentRecruitment(env,today){
+ const c=await getActiveCampaign(env,today);
+ if(c)return campaignToSettings(c,today);
+ return getRecruitment(env);
+}
+function publicCampaign(c,today){
+ if(!c)return null;
+ const open=campaignIsOpen(c,today);
+ return {id:c.id,title:c.title,code:c.code||'',open,
+  message:open?(c.open_message||RECRUITMENT_DEFAULTS.openMessage):(c.closed_message||RECRUITMENT_DEFAULTS.closedMessage),
+  opensOn:c.opens_on||null,closesOn:c.closes_on||null,fee:c.fee||'',currency:c.currency||'BDT',
+  feeNote:c.fee_note||'',requirePayment:!!c.require_payment,
+  methods:String(c.methods||'').split(',').map(x=>x.trim()).filter(Boolean),
+  payTo:c.pay_to||'',payToLabel:c.pay_to_label||''};
+}
+
+/* A notice is "active" while it is published and not past its expiry date.
+   Expired notices stay in the database (archived) but leave the public board and
+   the homepage. today is YYYY-MM-DD; expiry_date compares safely as a string. */
+function noticeActive(row,today){
+ if(!row||!row.published)return false;
+ const t=today||todayStr();
+ const ex=row.expiry_date?String(row.expiry_date).slice(0,10):'';
+ if(/^\d{4}-\d{2}-\d{2}$/.test(ex)&&ex<t)return false;
+ return true;
+}
 
 async function login(req,env){if(!sameOrigin(req))return json({error:'Invalid origin'},403);const b=await body(req);const id=cleanText(b.iursId,80).toUpperCase(),pw=String(b.password||'');if(!id||!pw)return json({error:'IURS ID and password are required.'},400);const ip=req.headers.get('CF-Connecting-IP')||'unknown';const rlKey=`${id}|${ip}`;const recent=await env.DB.prepare("SELECT COUNT(*) c FROM login_attempts WHERE attempt_key=? AND created_at>datetime('now','-15 minutes')").bind(rlKey).first();if(Number(recent?.c||0)>=8)return json({error:'Too many failed sign-in attempts. Please wait 15 minutes before trying again.'},429);const row=await env.DB.prepare('SELECT * FROM users WHERE upper(iurs_id)=? LIMIT 1').bind(id).first();if(!row||row.status!=='active'||!(await verifyPassword(pw,row.password_hash))){await env.DB.prepare('INSERT INTO login_attempts(attempt_key) VALUES(?)').bind(rlKey).run();return json({error:'Invalid IURS ID or password.'},401)}await env.DB.prepare('DELETE FROM login_attempts WHERE attempt_key=?').bind(rlKey).run();await env.DB.prepare("DELETE FROM login_attempts WHERE created_at<=datetime('now','-1 day')").run();await env.DB.prepare("DELETE FROM sessions WHERE expires_at<=datetime('now')").run();const token=await randomToken(),hash=await sha256Base64(token),expires=new Date(Date.now()+SESSION_DAYS*86400000).toISOString();await env.DB.prepare('INSERT INTO sessions(user_id,token_hash,expires_at) VALUES(?,?,?)').bind(row.id,hash,expires).run();const target=row.role==='member'?'/dashboard.html':'/admin.html';return json({ok:true,user:cleanUser(row),redirect:target},200,{'Set-Cookie':`iurs_session=${token}; ${cookieOptions(SESSION_DAYS*86400)}`})}
 async function logout(req,env){const c=parseCookie(req.headers.get('Cookie')||'');if(c.iurs_session)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256Base64(c.iurs_session)).run();return json({ok:true},200,{'Set-Cookie':`iurs_session=; ${cookieOptions(0)}`})}
@@ -402,7 +645,22 @@ function applicationRows(rows){
  return rows.map(r=>APPLICATION_EXPORT.map(([k])=>k==='id'?Number(r.id):(r[k]??'')));
 }
 
-async function adminApi(req,env,user,path){if(!allowed(user))return json({error:'Executive access required.'},403);const m=req.method;if(m!=='GET'&&!sameOrigin(req))return json({error:'Invalid origin'},403);
+function isMutation(req){return req.method==='POST'||req.method==='PUT'||req.method==='DELETE'||req.method==='PATCH'}
+
+async function adminApi(req,env,user,path){
+  const res=await adminRoutes(req,env,user,path);
+  try{
+    if(isMutation(req)&&res&&res.status>=200&&res.status<300){
+      const body=await res.clone().json().catch(()=>null);
+      const id=(body&&(body.id||body.item&&body.item.id))!=null?String(body.id||body.item.id):'';
+      logActivity(env,user,req.method+' '+path,path.split('/')[1]||'admin',id,
+        path+' '+String(req.method));
+    }
+  }catch(_){}
+  return res;
+}
+
+async function adminRoutes(req,env,user,path){if(!allowed(user))return json({error:'Executive access required.'},403);const m=req.method;if(m!=='GET'&&!sameOrigin(req))return json({error:'Invalid origin'},403);
 
  if(path==='/api/admin/summary'&&m==='GET'){const [members,execs,papers,events,notices]=await Promise.all([env.DB.prepare("SELECT COUNT(*) c FROM users WHERE role='member' AND status='active'").first(),env.DB.prepare("SELECT COUNT(*) c FROM users WHERE role IN ('executive','admin') AND status='active'").first(),env.DB.prepare('SELECT COUNT(*) c FROM publications').first(),env.DB.prepare('SELECT COUNT(*) c FROM events').first(),env.DB.prepare('SELECT COUNT(*) c FROM notices WHERE published=1').first()]);return json({members:+members.c,executives:+execs.c,publications:+papers.c,events:+events.c,notices:+notices.c})}
  if(path==='/api/admin/members'&&m==='GET'){const r=await env.DB.prepare('SELECT id,iurs_id,name,email,department,year_level,position,phone,status,role,must_change_password,created_at FROM users ORDER BY id DESC').all();return json(r.results||[])}
@@ -410,7 +668,7 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
  if(path.startsWith('/api/admin/members/')&&m==='PUT'){const id=Number(path.split('/').pop());const target=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'User not found.'},404);const b=await body(req);if(target.role==='admin'&&user.role!=='admin')return json({error:'Administrator account requires administrator access.'},403);if(b.role && b.role!==target.role && user.role!=='admin')return json({error:'Only administrators can change account roles.'},403);const role=b.role?((b.role==='admin'&&user.role==='admin')?'admin':(b.role==='executive'?'executive':'member')):target.role;if(role==='admin'&&user.role!=='admin')return json({error:'Only administrators can assign admin role.'},403);await env.DB.prepare("UPDATE users SET name=?,email=?,department=?,year_level=?,position=?,phone=?,role=?,status=?,updated_at=datetime('now') WHERE id=?").bind(cleanText(b.name,160)||target.name,cleanText(b.email,200)||null,cleanText(b.department,160)||null,cleanText(b.yearLevel,40)||null,cleanText(b.position,120)||null,cleanText(b.phone,60)||null,role,['active','inactive','suspended'].includes(b.status)?b.status:target.status,id).run();return json({ok:true})}
  if(path.startsWith('/api/admin/members/')&&m==='DELETE'){if(user.role!=='admin')return json({error:'Only administrators can deactivate accounts.'},403);const id=Number(path.split('/').pop());await env.DB.prepare("UPDATE users SET status='inactive',updated_at=datetime('now') WHERE id=? AND role!='admin'").bind(id).run();return json({ok:true})}
  if(path.match(/^\/api\/admin\/members\/\d+\/reset-password$/)&&m==='POST'){const id=Number(path.split('/')[4]);const target=await env.DB.prepare('SELECT id,role FROM users WHERE id=?').bind(id).first();if(!target)return json({error:'User not found.'},404);if(target.role==='admin'&&target.id!==user.id)return json({error:'An administrator password cannot be reset from here. The account owner must change it from the Security tab.'},403);if(user.role!=='admin'&&target.role!=='member')return json({error:'Executives can only reset member passwords.'},403);const b=await body(req),pw=String(b.password||'');if(pw.length<10)return json({error:'Password must be at least 10 characters.'},400);const ph=await hashPassword(pw,crypto.getRandomValues(new Uint8Array(16)));await env.DB.prepare("UPDATE users SET password_hash=?,must_change_password=1,updated_at=datetime('now') WHERE id=?").bind(ph,id).run();await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(id).run();return json({ok:true})}
- if(path==='/api/admin/stats'&&m==='GET')return json({stats:Object.fromEntries(((await env.DB.prepare('SELECT key,value,label FROM site_stats').all()).results||[]).map(r=>[r.key,r.value])),labels:STAT_LABELS,keys:STAT_KEYS});
+ if(path==='/api/admin/stats'&&m==='GET'){const pub=await publicStats(env);return json({stats:Object.fromEntries(Object.entries(pub).map(([k,v])=>[k,v.value])),labels:STAT_LABELS,keys:STAT_KEYS,derived:Object.fromEntries(Object.entries(pub).map(([k,v])=>[k,!!v.derived]))})}
  if(path==='/api/admin/stats'&&m==='PUT'){const b=await body(req);for(const key of STAT_KEYS)if(b[key]!=null)await env.DB.prepare('INSERT INTO site_stats(key,value,label) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').bind(key,cleanText(b[key],50),STAT_LABELS[key]||key).run();return json({ok:true})}
  if(path==='/api/admin/publications'&&m==='GET'){const r=await env.DB.prepare('SELECT * FROM publications ORDER BY sort_order,publication_year DESC,id DESC').all();return json({publications:r.results||[],categories:PUB_CATEGORIES,rows:r.results||[]})}
  if(path==='/api/admin/publications'&&m==='POST'){const b=await body(req);const cat=PUB_CATEGORIES.includes(b.category)?b.category:null;
@@ -423,16 +681,16 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   if(!prev)return json({error:'Publication not found.'},404);
   await env.DB.prepare("UPDATE publications SET title=?,authors=?,category=?,type_label=?,journal=?,publication_year=?,doi=?,url=?,abstract=?,published_status=?,featured=?,sort_order=?,updated_at=datetime('now') WHERE id=?").bind(cleanText(b.title,500),cleanText(b.authors,1000),cat,cleanText(b.typeLabel,120)||null,cleanText(b.journal,300)||null,Number(b.year)||null,cleanText(b.doi,200)||null,cleanUrl(b.url),cleanText(b.abstract,8000)||null,cleanText(b.publishedStatus||'published',40),b.featured?1:0,sortValue(b.sortOrder,prev.sort_order||0),id).run();return json({ok:true})}
  if(path.startsWith('/api/admin/publications/')&&m==='DELETE'){const id=Number(path.split('/').pop());await env.DB.prepare('DELETE FROM publications WHERE id=?').bind(id).run();return json({ok:true})}
- if(path==='/api/admin/events'&&m==='GET'){const r=await env.DB.prepare('SELECT * FROM events ORDER BY CASE WHEN status=\'upcoming\' THEN 0 ELSE 1 END,event_date DESC,id DESC').all();return json(r.results||[])}
- if(path==='/api/admin/events'&&m==='POST'){const b=await body(req);if(!cleanText(b.title,400))return json({error:'Event title is required.'},400);await env.DB.prepare('INSERT INTO events(title,event_date,event_time,venue,description,status,image_url,link_url,registration_url) VALUES(?,?,?,?,?,?,?,?,?)').bind(cleanText(b.title,400),isoDate(b.date),cleanText(b.time,80)||null,cleanText(b.venue,300)||null,cleanText(b.description,5000)||null,['upcoming','past','cancelled'].includes(b.status)?b.status:'upcoming',cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.registrationUrl)).run();return json({ok:true})}
- if(path.startsWith('/api/admin/events/')&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req);if(!cleanText(b.title,400))return json({error:'Event title is required.'},400);await env.DB.prepare('UPDATE events SET title=?,event_date=?,event_time=?,venue=?,description=?,status=?,image_url=?,link_url=?,registration_url=?,updated_at=datetime(\'now\') WHERE id=?').bind(cleanText(b.title,400),isoDate(b.date),cleanText(b.time,80)||null,cleanText(b.venue,300)||null,cleanText(b.description,5000)||null,['upcoming','past','cancelled'].includes(b.status)?b.status:'upcoming',cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.registrationUrl),id).run();return json({ok:true})}
+ if(path==='/api/admin/events'&&m==='GET'){const r=await env.DB.prepare('SELECT * FROM events ORDER BY event_date DESC,id DESC').all();return json(sortEvents(r.results||[]))}
+ if(path==='/api/admin/events'&&m==='POST'){const b=await body(req);if(!cleanText(b.title,400))return json({error:'Event title is required.'},400);await env.DB.prepare('INSERT INTO events(title,event_date,event_time,venue,description,status,status_override,featured,image_url,link_url,registration_url) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind(cleanText(b.title,400),isoDate(b.date),cleanText(b.time,80)||null,cleanText(b.venue,300)||null,cleanText(b.description,5000)||null,['upcoming','past','cancelled'].includes(b.status)?b.status:'upcoming',EVENT_STATUSES.includes(b.statusOverride)?b.statusOverride:null,b.featured?1:0,cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.registrationUrl)).run();return json({ok:true})}
+ if(path.startsWith('/api/admin/events/')&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req);if(!cleanText(b.title,400))return json({error:'Event title is required.'},400);await env.DB.prepare('UPDATE events SET title=?,event_date=?,event_time=?,venue=?,description=?,status=?,status_override=?,featured=?,image_url=?,link_url=?,registration_url=?,updated_at=datetime(\'now\') WHERE id=?').bind(cleanText(b.title,400),isoDate(b.date),cleanText(b.time,80)||null,cleanText(b.venue,300)||null,cleanText(b.description,5000)||null,['upcoming','past','cancelled'].includes(b.status)?b.status:'upcoming',EVENT_STATUSES.includes(b.statusOverride)?b.statusOverride:null,b.featured?1:0,cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.registrationUrl),id).run();return json({ok:true})}
  if(path.startsWith('/api/admin/events/')&&m==='DELETE'){await env.DB.prepare('DELETE FROM events WHERE id=?').bind(Number(path.split('/').pop())).run();return json({ok:true})}
  if(path==='/api/admin/notices'&&m==='GET'){const r=await env.DB.prepare('SELECT * FROM notices ORDER BY pinned DESC,published DESC,created_at DESC,id DESC').all();return json(r.results||[])}
- if(path==='/api/admin/notices'&&m==='POST'){const b=await body(req);if(!cleanText(b.title,400)||!cleanText(b.body,5000))return json({error:'Notice title and body are required.'},400);await env.DB.prepare('INSERT INTO notices(title,body,level,published,image_url,link_url,attachment_url,attachment_name,pinned,notice_date) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(cleanText(b.title,400),cleanText(b.body,5000),['urgent','high','normal'].includes(b.level)?b.level:'normal',b.published===false?0:1,cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.attachmentUrl),cleanText(b.attachmentName,160)||null,b.pinned?1:0,isoDate(b.noticeDate)).run();return json({ok:true})}
+ if(path==='/api/admin/notices'&&m==='POST'){const b=await body(req);if(!cleanText(b.title,400)||!cleanText(b.body,5000))return json({error:'Notice title and body are required.'},400);const ex=cleanText(b.expiryDate,10);await env.DB.prepare('INSERT INTO notices(title,body,level,published,featured,show_on_homepage,expiry_date,category,image_url,link_url,attachment_url,attachment_name,pinned,notice_date) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(cleanText(b.title,400),cleanText(b.body,5000),['urgent','high','normal'].includes(b.level)?b.level:'normal',b.published===false?0:1,b.featured?1:0,b.showOnHomepage===false?0:1,/^\d{4}-\d{2}-\d{2}$/.test(ex)?ex:null,cleanText(b.category,80)||null,cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.attachmentUrl),cleanText(b.attachmentName,160)||null,b.pinned?1:0,isoDate(b.noticeDate)).run();return json({ok:true})}
  // One-click "publish / take down" from the notice list, so putting a notice live
  // never means re-submitting the whole form and risking a change to its text.
  if(/^\/api\/admin\/notices\/\d+\/publish$/.test(path)&&m==='POST'){const id=Number(path.split('/')[4]),b=await body(req);await env.DB.prepare("UPDATE notices SET published=?,updated_at=datetime('now') WHERE id=?").bind(b.published?1:0,id).run();return json({ok:true,published:b.published?1:0})}
- if(path.startsWith('/api/admin/notices/')&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req);if(!cleanText(b.title,400)||!cleanText(b.body,5000))return json({error:'Notice title and body are required.'},400);await env.DB.prepare('UPDATE notices SET title=?,body=?,level=?,published=?,image_url=?,link_url=?,attachment_url=?,attachment_name=?,pinned=?,notice_date=?,updated_at=datetime(\'now\') WHERE id=?').bind(cleanText(b.title,400),cleanText(b.body,5000),['urgent','high','normal'].includes(b.level)?b.level:'normal',b.published===false?0:1,cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.attachmentUrl),cleanText(b.attachmentName,160)||null,b.pinned?1:0,isoDate(b.noticeDate),id).run();return json({ok:true})}
+ if(path.startsWith('/api/admin/notices/')&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req);if(!cleanText(b.title,400)||!cleanText(b.body,5000))return json({error:'Notice title and body are required.'},400);const ex=cleanText(b.expiryDate,10);await env.DB.prepare('UPDATE notices SET title=?,body=?,level=?,published=?,featured=?,show_on_homepage=?,expiry_date=?,category=?,image_url=?,link_url=?,attachment_url=?,attachment_name=?,pinned=?,notice_date=?,updated_at=datetime(\'now\') WHERE id=?').bind(cleanText(b.title,400),cleanText(b.body,5000),['urgent','high','normal'].includes(b.level)?b.level:'normal',b.published===false?0:1,b.featured?1:0,b.showOnHomepage===false?0:1,/^\d{4}-\d{2}-\d{2}$/.test(ex)?ex:null,cleanText(b.category,80)||null,cleanUrl(b.imageUrl),cleanUrl(b.linkUrl),cleanUrl(b.attachmentUrl),cleanText(b.attachmentName,160)||null,b.pinned?1:0,isoDate(b.noticeDate),id).run();return json({ok:true})}
  if(path.startsWith('/api/admin/notices/')&&m==='DELETE'){await env.DB.prepare('DELETE FROM notices WHERE id=?').bind(Number(path.split('/').pop())).run();return json({ok:true})}
  /* Notices routinely carry a PDF — a circular, a results sheet, a form to fill in.
     The file is sniffed by its real first bytes, exactly like a photo, so renaming
@@ -448,6 +706,8 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   const key=`notices/${new Date().getFullYear()}/${b64u(crypto.getRandomValues(new Uint8Array(12)))}.${DOC_TYPES[real]}`;
   const put=await putUpload(env,key,buf,real);if(!put.ok)return json({error:put.error},put.status);
   return json({ok:true,url:'/uploads/'+key,name:cleanText(file.name,160)||('attachment.'+DOC_TYPES[real]),contentType:real,bytes:file.size})}
+ if(path==='/api/admin/events/upload'&&m==='POST')return await handleAdminImageUpload(req,env,'events');
+ if(path==='/api/admin/training/upload'&&m==='POST')return await handleAdminImageUpload(req,env,'training');
  if(path==='/api/admin/gallery/upload'&&m==='POST'){
   let form;try{form=await req.formData()}catch{return json({error:'Could not read the uploaded file.'},400)}
   const file=form.get('file');if(!file||typeof file==='string'||!file.arrayBuffer)return json({error:'Please choose an image file to upload.'},400);
@@ -561,7 +821,7 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   return json({ok:true})}
 
  /* ---------- Alumni ---------- */
- if(path==='/api/admin/alumni'&&m==='GET'){const r=await env.DB.prepare("SELECT * FROM alumni ORDER BY CASE standing WHEN 'current' THEN 0 ELSE 1 END,sort_order,id").all();return json({alumni:r.results||[]})}
+ if(path==='/api/admin/alumni'&&m==='GET'){const sp=new URL(req.url).searchParams,q=cleanText(sp.get('q')||'',120),standing=sp.get('standing')||'';let sql='SELECT * FROM alumni',where=[],bind=[];if(q){where.push('(name LIKE ? OR department LIKE ? OR occupation LIKE ? OR organization LIKE ?)');const like='%'+q+'%';bind.push(like,like,like,like)}if(['current','previous'].includes(standing)){where.push('standing=?');bind.push(standing)}if(where.length)sql+=' WHERE '+where.join(' AND ');sql+=" ORDER BY CASE standing WHEN 'current' THEN 0 ELSE 1 END,sort_order,id";const r=await env.DB.prepare(sql).bind(...bind).all();return json({alumni:r.results||[]})}
  if(path==='/api/admin/alumni'&&m==='POST'){const b=await body(req),name=cleanText(b.name,160);
   if(!name)return json({error:'Alumnus name is required.'},400);
   const o=await env.DB.prepare('SELECT COALESCE(MAX(sort_order),-1)+1 n FROM alumni').first();
@@ -586,7 +846,7 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
  if(path==='/api/admin/blog'&&m==='POST'){const b=await body(req),title=cleanText(b.title,300);
   if(!title)return json({error:'Article title is required.'},400);
   const slug=await uniqueSlug(env,cleanText(b.slug,160)||title,0);
-  await env.DB.prepare('INSERT INTO blog_posts(slug,title,author,category,excerpt,content,image_url,status,post_date,sort_order) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(slug,title,cleanText(b.author,160)||null,cleanText(b.category,120)||null,cleanText(b.excerpt,600)||null,cleanText(b.content,60000)||null,cleanUrl(b.imageUrl),b.status==='published'?'published':'draft',isoDate(b.postDate)||new Date().toISOString().slice(0,10),sortValue(b.sortOrder,0)).run();
+  await env.DB.prepare('INSERT INTO blog_posts(slug,title,author,category,excerpt,content,image_url,status,featured,post_date,sort_order) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind(slug,title,cleanText(b.author,160)||null,cleanText(b.category,120)||null,cleanText(b.excerpt,600)||null,cleanText(b.content,60000)||null,cleanUrl(b.imageUrl),b.status==='published'?'published':'draft',b.featured?1:0,isoDate(b.postDate)||new Date().toISOString().slice(0,10),sortValue(b.sortOrder,0)).run();
   return json({ok:true,slug})}
  if(path.match(/^\/api\/admin\/blog\/\d+$/)&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req),title=cleanText(b.title,300);
   if(!title)return json({error:'Article title is required.'},400);
@@ -595,7 +855,7 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   const wanted=cleanText(b.slug,160)||title;
   const slug=await uniqueSlug(env,wanted,id);
   const image=cleanUrl(b.imageUrl);
-  await env.DB.prepare("UPDATE blog_posts SET slug=?,title=?,author=?,category=?,excerpt=?,content=?,image_url=?,status=?,post_date=?,sort_order=?,updated_at=datetime('now') WHERE id=?").bind(slug,title,cleanText(b.author,160)||null,cleanText(b.category,120)||null,cleanText(b.excerpt,600)||null,cleanText(b.content,60000)||null,image,b.status==='published'?'published':'draft',isoDate(b.postDate)||null,sortValue(b.sortOrder,prev.sort_order||0),id).run();
+  await env.DB.prepare("UPDATE blog_posts SET slug=?,title=?,author=?,category=?,excerpt=?,content=?,image_url=?,status=?,featured=?,post_date=?,sort_order=?,updated_at=datetime('now') WHERE id=?").bind(slug,title,cleanText(b.author,160)||null,cleanText(b.category,120)||null,cleanText(b.excerpt,600)||null,cleanText(b.content,60000)||null,image,b.status==='published'?'published':'draft',b.featured?1:0,isoDate(b.postDate)||null,sortValue(b.sortOrder,prev.sort_order||0),id).run();
   if(prev.image_url!==image) await maybeDeleteUpload(env,prev.image_url);
   return json({ok:true,slug})}
  if(path.match(/^\/api\/admin\/blog\/\d+$/)&&m==='DELETE'){const id=Number(path.split('/').pop());
@@ -604,11 +864,55 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   if(prev) await maybeDeleteUpload(env,prev.image_url);
   return json({ok:true})}
 
+ /* ---------- Homepage manager ---------- */
+ if(path==='/api/admin/homepage'&&m==='GET')return json(await getHomepage(env));
+ if(path==='/api/admin/homepage'&&m==='PUT'){const b=await body(req);const cur=await getHomepage(env);
+  const sections={...cur.sections};if(b.sections&&typeof b.sections==='object')for(const k of Object.keys(sections))if(typeof b.sections[k]==='boolean')sections[k]=b.sections[k];
+  let order=Array.isArray(b.order)?b.order.filter(x=>typeof x==='string'&&HOMEPAGE_DEFAULTS.order.includes(x)):[];
+  for(const s of HOMEPAGE_DEFAULTS.order)if(!order.includes(s))order.push(s);
+  const num=(v,d)=>Number.isFinite(Number(v))?Math.max(0,Math.min(50,Math.trunc(Number(v)))):d;
+  const next={...cur,sections,order,
+   featuredNoticeId:Number(b.featuredNoticeId)||null,featuredEventId:Number(b.featuredEventId)||null,
+   homepageNoticeCount:num(b.homepageNoticeCount,cur.homepageNoticeCount),
+   featuredBlogLimit:num(b.featuredBlogLimit,cur.featuredBlogLimit),
+   featuredPubLimit:num(b.featuredPubLimit,cur.featuredPubLimit),
+   heroTitle:cleanText(b.heroTitle,200),heroSubtitle:cleanText(b.heroSubtitle,300)};
+  await env.DB.prepare("INSERT INTO homepage_settings(key,value,updated_at) VALUES('main',?,datetime('now')) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=datetime('now')").bind(JSON.stringify(next)).run();
+  return json({ok:true,homepage:next})}
+
+ /* ---------- Site settings (identity & contact, admin-managed) ---------- */
+ if(path==='/api/admin/site-settings'&&m==='GET')return json(await getSiteSettings(env));
+ if(path==='/api/admin/site-settings'&&m==='PUT'){const b=await body(req);
+  const next={...await getSiteSettings(env)};
+  for(const k of Object.keys(SITE_DEFAULTS))if(b[k]!=null)next[k]=cleanText(b[k],k==='about'?500:300);
+  for(const k of ['website','facebook','linkedin','youtube','x'])if(next[k])next[k]=cleanUrl(next[k])||SITE_DEFAULTS[k];
+  if(next.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next.email))next.email=SITE_DEFAULTS.email;
+  await env.DB.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,datetime('now')) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=datetime('now')").bind(SITE_SETTINGS_KEY,JSON.stringify(next)).run();
+  await logActivity(env,user,'update','site_settings',SITE_SETTINGS_KEY,'Site identity & contact settings saved');
+  return json({ok:true,settings:next})}
+
+ /* ---------- Recruitment campaigns ---------- */
+ if(path==='/api/admin/campaigns'&&m==='GET'){const t=todayStr();const rows=((await env.DB.prepare('SELECT * FROM recruitment_campaigns ORDER BY archived,sort_order,id DESC').all()).results||[]).map(c=>({...c,live:campaignIsOpen(c,t)}));return json({campaigns:rows})}
+ if(path==='/api/admin/campaigns'&&m==='POST'){const b=await body(req);if(!cleanText(b.title,120))return json({error:'Campaign title is required.'},400);
+  const o=await env.DB.prepare('SELECT COALESCE(MAX(sort_order),-1)+1 n FROM recruitment_campaigns').first();
+  const d=v=>{const s=cleanText(v,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:null};
+  await env.DB.prepare('INSERT INTO recruitment_campaigns(title,code,open,opens_on,closes_on,fee,currency,fee_note,methods,pay_to,pay_to_label,require_payment,open_message,closed_message,sort_order) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(cleanText(b.title,120),cleanText(b.code,40)||null,b.open?1:0,d(b.opensOn),d(b.closesOn),cleanText(b.fee,20)||null,cleanText(b.currency,10)||'BDT',cleanText(b.feeNote,300)||null,cleanText(b.methods,300)||null,cleanText(b.payTo,120)||null,cleanText(b.payToLabel,120)||null,b.requirePayment===false?0:1,cleanText(b.openMessage,600)||null,cleanText(b.closedMessage,600)||null,sortValue(b.sortOrder,(o&&o.n)||0)).run();
+  return json({ok:true})}
+ if(path.match(/^\/api\/admin\/campaigns\/\d+$/)&&m==='PUT'){const id=Number(path.split('/').pop()),b=await body(req);
+  const prev=await env.DB.prepare('SELECT * FROM recruitment_campaigns WHERE id=?').bind(id).first();if(!prev)return json({error:'Campaign not found.'},404);
+  const d=v=>{const s=cleanText(v,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:null};
+  await env.DB.prepare("UPDATE recruitment_campaigns SET title=?,code=?,open=?,opens_on=?,closes_on=?,fee=?,currency=?,fee_note=?,methods=?,pay_to=?,pay_to_label=?,require_payment=?,open_message=?,closed_message=?,sort_order=?,updated_at=datetime('now') WHERE id=?").bind(cleanText(b.title,120)||prev.title,cleanText(b.code,40)||null,b.open?1:0,d(b.opensOn),d(b.closesOn),cleanText(b.fee,20)||null,cleanText(b.currency,10)||'BDT',cleanText(b.feeNote,300)||null,cleanText(b.methods,300)||null,cleanText(b.payTo,120)||null,cleanText(b.payToLabel,120)||null,b.requirePayment===false?0:1,cleanText(b.openMessage,600)||null,cleanText(b.closedMessage,600)||null,sortValue(b.sortOrder,prev.sort_order||0),id).run();
+  return json({ok:true})}
+ if(path.match(/^\/api\/admin\/campaigns\/\d+\/archive$/)&&m==='POST'){const id=Number(path.split('/')[4]),b=await body(req);await env.DB.prepare("UPDATE recruitment_campaigns SET archived=?,updated_at=datetime('now') WHERE id=?").bind(b.archived?1:0,id).run();return json({ok:true,archived:b.archived?1:0})}
+
+ /* ---------- Activity log (administrator only) ---------- */
+ if(path==='/api/admin/activity-logs'&&m==='GET'){if(user.role!=='admin')return json({error:'Administrator access required.'},403);const r=await env.DB.prepare('SELECT * FROM activity_logs ORDER BY created_at DESC,id DESC LIMIT 200').all();return json({logs:r.results||[]})}
+
  /* ---------- Join IURS applications (never public) ---------- */
  /* Recruitment window. GET returns the raw stored settings (the form needs the
     switch itself, not the computed "is it open right now"), plus the computed
     state so the panel can say what the public is currently seeing. */
- if(path==='/api/admin/recruitment'&&m==='GET'){const s=await getRecruitment(env);return json({settings:s,liveNow:recruitmentIsOpen(s),today:new Date().toISOString().slice(0,10)})}
+ if(path==='/api/admin/recruitment'&&m==='GET'){const s=await getRecruitment(env);const today=todayStr();const campaigns=((await env.DB.prepare('SELECT * FROM recruitment_campaigns ORDER BY archived,sort_order,id DESC').all()).results||[]).map(c=>({...c,live:campaignIsOpen(c,today)}));return json({settings:s,liveNow:recruitmentIsOpen(s),today,campaigns})}
  if(path==='/api/admin/recruitment'&&m==='PUT'){const b=await body(req);
   const bool=v=>v===true||v===1||v==='1'||v==='true'||v==='on';
   // A date box that is cleared must actually clear, so an invalid value becomes ''
@@ -694,223 +998,3 @@ async function adminApi(req,env,user,path){if(!allowed(user))return json({error:
   return json({ok:true})}
  if(path.match(/^\/api\/admin\/applications\/\d+$/)&&m==='DELETE'){if(user.role!=='admin')return json({error:'Only administrators can delete an application.'},403);
   await env.DB.prepare('DELETE FROM applications WHERE id=?').bind(Number(path.split('/').pop())).run();return json({ok:true})}
-
- return json({error:'Not found'},404)}
-
-async function publicApi(req,env,path){
- // Whether the Join IURS form should be usable right now, and what to pay.
- if(path==='/api/public/recruitment')return json(publicRecruitment(await getRecruitment(env)));
- /* The login page offers a "first-time setup" link. Once an admin account exists
-    that link only leads to a 409, so the page hides it — but it has to ask,
-    because the pages are static files. Only a boolean is returned. */
- if(path==='/api/public/setup-status'){const c=await env.DB.prepare('SELECT COUNT(*) c FROM users').first();return json({needsSetup:Number(c?.c||0)===0})}
- if(path==='/api/public/stats')return json(Object.fromEntries(((await env.DB.prepare('SELECT key,value,label FROM site_stats').all()).results||[]).map(r=>[r.key,{value:r.value,label:r.label}])));
- if(path==='/api/public/publications'){const r=await env.DB.prepare("SELECT id,title,authors,category,type_label,journal,publication_year,doi,url,abstract,featured FROM publications WHERE published_status='published' ORDER BY sort_order,publication_year DESC,id DESC").all();
-  const rows=r.results||[];
-  return json({publications:rows,peerReviewed:rows.filter(x=>x.category==='peer_reviewed'),conference:rows.filter(x=>x.category==='conference'),workingPapers:rows.filter(x=>x.category==='working_paper'),underReview:rows.filter(x=>x.category==='under_review')})}
- if(path==='/api/public/events'){const r=await env.DB.prepare('SELECT * FROM events ORDER BY CASE WHEN status=\'upcoming\' THEN 0 ELSE 1 END,event_date DESC,id DESC').all();return json(r.results||[])}
- if(path==='/api/public/notices'){const r=await env.DB.prepare('SELECT * FROM notices WHERE published=1 ORDER BY pinned DESC,COALESCE(notice_date,date(created_at)) DESC,created_at DESC,id DESC').all();return json(r.results||[])}
- if(path==='/api/public/gallery'){const r=await env.DB.prepare('SELECT id,category,title,caption,image_url,fit,featured FROM gallery_images WHERE published=1 ORDER BY sort_order,id').all();return json({gallery:r.results||[],categories:GALLERY_CATEGORIES})}
- if(path==='/api/public/training'){const r=await env.DB.prepare('SELECT id,title,trainer,description,date_label,image_url,link_url FROM training_sessions WHERE published=1 ORDER BY sort_order,id').all();return json({training:r.results||[]})}
- if(path==='/api/public/committee'){const sessions=(await env.DB.prepare('SELECT id,label,description,reference_note,is_current FROM committee_sessions ORDER BY is_current DESC,sort_order,label DESC').all()).results||[];
-  const people=(await env.DB.prepare("SELECT id,session_id,name,designation,department,tier,photo_url,email,linkedin_url,facebook_url,sl_no FROM executives WHERE status='active' ORDER BY CASE tier WHEN 'advisor' THEN 0 WHEN 'leadership' THEN 1 WHEN 'roster' THEN 2 ELSE 3 END,sort_order,id").all()).results||[];
-  const pack=s=>{const mine=t=>people.filter(p=>p.session_id===s.id&&p.tier===t);
-   return {id:s.id,label:s.label,description:s.description,reference:s.reference_note,isCurrent:!!s.is_current,
-    leadership:mine('leadership'),
-    // Anything not explicitly filed elsewhere stays in the numbered committee table,
-    // which is where every existing row already sits.
-    roster:people.filter(p=>p.session_id===s.id&&p.tier!=='leadership'&&p.tier!=='advisor'&&p.tier!=='member'),
-    advisors:mine('advisor'),
-    members:mine('member')}};
-  const current=sessions.find(s=>s.is_current)||sessions[0]||null;
-  return json({current:current?pack(current):null,archive:sessions.filter(s=>!current||s.id!==current.id).map(pack)})}
- if(path==='/api/public/alumni'){const r=await env.DB.prepare("SELECT id,name,session_label,department,graduation_year,occupation,organization,photo_url,bio,standing FROM alumni WHERE published=1 ORDER BY sort_order,id").all();
-  const rows=r.results||[];return json({current:rows.filter(x=>x.standing!=='previous'),previous:rows.filter(x=>x.standing==='previous')})}
- if(path==='/api/public/blog'){const r=await env.DB.prepare("SELECT id,slug,title,author,category,excerpt,image_url,post_date FROM blog_posts WHERE status='published' ORDER BY sort_order,post_date DESC,id DESC").all();return json({posts:r.results||[]})}
- if(path.startsWith('/api/public/blog/')){const slug=decodeURIComponent(path.slice('/api/public/blog/'.length));
-  const row=await env.DB.prepare("SELECT id,slug,title,author,category,excerpt,content,image_url,post_date FROM blog_posts WHERE slug=? AND status='published'").bind(cleanText(slug,160)).first();
-  return row?json({post:row}):json({error:'Article not found.'},404)}
- if(path==='/api/public/join'&&req.method==='POST')return await submitApplication(req,env);
- if(path==='/api/public/chat'&&req.method==='POST')return await chat(req,env);
- return json({error:'Not found'},404)}
-
-/* ---------------------------------------------------------------------------
-   Join IURS. Anyone may submit, nobody may read. Abuse control is three-fold:
-   a hidden field real people never fill in, a per-address submission limit,
-   and hard length caps on every field.
-   --------------------------------------------------------------------------- */
-async function submitApplication(req,env){
- if(!sameOrigin(req))return json({error:'Invalid origin'},403);
- /* The window is checked here and not only in the page. A form left open in a
-    browser tab from last month must not be able to post an application after
-    recruitment has closed. */
- const rs=await getRecruitment(env);
- if(!recruitmentIsOpen(rs))return json({error:rs.closedMessage||'Member recruitment is closed at the moment.',code:'recruitment_closed'},403);
- const b=await body(req);
- if(cleanText(b.website,200))return json({ok:true});           // honeypot: silently accept, store nothing
- const name=cleanText(b.name,160),email=cleanText(b.email,200);
- if(!name)return json({error:'Please enter your full name.'},400);
- if(!email||!/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(email))return json({error:'Please enter a valid email address.'},400);
- if(!cleanText(b.department,200))return json({error:'Please enter your department.'},400);
- if(!cleanText(b.academicSession,80))return json({error:'Please enter your academic session, for example 2022-23.'},400);
- if(!cleanText(b.motivation,4000))return json({error:'Please tell us why you would like to join.'},400);
- const method=cleanText(b.paymentMethod,60),txn=cleanText(b.transactionId,80);
- if(rs.requirePayment){
-  const methods=String(rs.methods||'').split(',').map(x=>x.trim()).filter(Boolean);
-  if(!method||(methods.length&&!methods.some(x=>x.toLowerCase()===method.toLowerCase())))
-   return json({error:'Please choose how you paid the membership fee.'},400);
-  /* A transaction id is the only thing that lets the treasurer match a payment to
-     a person, so it is required and must look like one. Providers use 6-32
-     letters/digits; anything shorter is almost always a typo or a placeholder. */
-  if(!/^[A-Za-z0-9][A-Za-z0-9.\-_]{5,31}$/.test(txn))
-   return json({error:'Please enter the full transaction ID from your payment receipt (at least 6 characters, letters and numbers only).'},400);
-  const clash=await env.DB.prepare('SELECT id FROM applications WHERE transaction_id IS NOT NULL AND upper(transaction_id)=upper(?)').bind(txn).first();
-  if(clash)return json({error:'This transaction ID has already been submitted with another application. Please check your receipt.'},409);
- }
- const ip=req.headers.get('CF-Connecting-IP')||'unknown';
- const key=await sha256Base64('join|'+ip);
- const recent=await env.DB.prepare("SELECT COUNT(*) c FROM applications WHERE source_key=? AND created_at>datetime('now','-1 day')").bind(key).first();
- if(Number(recent?.c||0)>=5)return json({error:'We have already received several applications from this connection today. Please email us instead.'},429);
- const dup=await env.DB.prepare("SELECT id FROM applications WHERE lower(email)=lower(?) AND created_at>datetime('now','-7 days')").bind(email).first();
- if(dup)return json({error:'An application from this email address is already with us. We will be in touch soon.'},409);
- await env.DB.prepare('INSERT INTO applications(name,student_id,department,academic_session,year_level,email,phone,research_interests,skills,experience,motivation,payment_method,transaction_id,payment_amount,payment_sender,payment_date,payment_status,status,source_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-  .bind(name,cleanText(b.studentId,80)||null,cleanText(b.department,200),cleanText(b.academicSession,80),cleanText(b.yearLevel,40)||null,email,cleanText(b.phone,60)||null,cleanText(b.researchInterests,2000)||null,cleanText(b.skills,2000)||null,cleanText(b.experience,4000)||null,cleanText(b.motivation,4000),method||null,txn||null,cleanText(b.paymentAmount,20)||rs.fee||null,cleanText(b.paymentSender,60)||null,cleanText(b.paymentDate,20)||null,'unverified','pending',key).run();
- return json({ok:true,message:rs.requirePayment
-  ? 'Thank you. Your application has reached the IURS executive team. It stays pending until we match your transaction ID against our payment record — you will hear from us by email once that is done.'
-  : 'Thank you. Your application has reached the IURS executive team.'})}
-
-/* ---------------------------------------------------------------------------
-   Chatbot. It answers ONLY from rows in this database plus a short fixed
-   description of IURS taken from the existing website. Facts are retrieved
-   first; the language model is given those facts and is told it may not add
-   anything. If no model binding exists, the retrieved facts are returned
-   directly, so the assistant still works and still cannot invent anything.
-   --------------------------------------------------------------------------- */
-const CHAT_ABOUT='IURS is the Islamic University Research Society, an academic research organisation at Islamic University, Kushtia-7003, Bangladesh. Its motto is "Research can change the world". Office: TSCC, Islamic University, Kushtia-7003. Email: iuresearchsociety@gmail.com. Phone: +880 1749-022577. Office hours: Saturday to Thursday, 9:00 AM to 5:00 PM.';
-const CHAT_LIMIT=20;
-const CHAT_TOPICS='publications, events, training sessions, notices, the executive committee, alumni, blog articles, the photo gallery and how to join IURS';
-/* Words worth searching on. Matching the WHOLE question with LIKE can never match
-   a row, so a natural question ("who is the president?") would silently retrieve
-   nothing at all. We keep the topic gate as the relevance test and use the
-   remaining words only to order rows, never to hide them. */
-const CHAT_STOP=new Set(['what','which','when','where','does','have','has','with','from','this','that','they','their','there','about','iurs','tell','please','know','would','could','many','much','your','yours','into','been','were','also','some','more','most','than','then','them','make','made','give','need','want','like','list','show','name','names','question','questions','society','university','islamic','current','currently','right','latest','recent','anything','everything','something']);
-const chatTerms=q=>(String(q||'').toLowerCase().match(/[a-z0-9]{4,}/g)||[]).filter(w=>!CHAT_STOP.has(w)).slice(0,6);
-const PUB_LABEL={peer_reviewed:'peer-reviewed article',conference:'conference/research paper',working_paper:'working paper',under_review:'under review'};
-async function chatFacts(env,q){
- const out=[],terms=chatTerms(q);
- const want=t=>!q||new RegExp(t,'i').test(q);
- const add=(head,rows,fn)=>{if(rows&&rows.length)out.push(head+'\n'+rows.map(fn).join('\n'))};
- const grab=async(sql,...bind)=>{try{return ((await env.DB.prepare(sql).bind(...bind).all()).results)||[]}catch{return []}};
- /* Put whatever the visitor actually named first, keeping the database order for ties. */
- const rank=(rows,...fields)=>{if(!terms.length)return rows;
-  const score=r=>{const hay=fields.map(f=>String(r[f]||'')).join(' ').toLowerCase();return terms.reduce((n,w)=>n+(hay.includes(w)?1:0),0)};
-  return rows.map((r,i)=>({r,i,s:score(r)})).sort((a,b)=>b.s-a.s||a.i-b.i).map(x=>x.r)};
- if(want('publication|paper|research|article|journal|doi|author|publish|study|studies')){
-  const rows=rank(await grab("SELECT title,authors,category,journal,publication_year FROM publications WHERE published_status='published' ORDER BY publication_year DESC,id DESC LIMIT 12"),'title','authors','journal').slice(0,8);
-  add('PUBLICATIONS:',rows,r=>`- "${r.title}" (${PUB_LABEL[r.category]||r.category}) by ${r.authors}. ${r.journal||''} ${r.publication_year||''}`.trim());
-  const c=await grab("SELECT category,COUNT(*) n FROM publications WHERE published_status='published' GROUP BY category");
-  add('PUBLICATION COUNTS:',c,r=>`- ${PUB_LABEL[r.category]||r.category}: ${r.n}`);
- }
- if(want('event|seminar|webinar|programme|program|conference|when|upcoming|past')){
-  const rows=await grab('SELECT title,event_date,event_time,venue,status FROM events ORDER BY CASE WHEN status=\'upcoming\' THEN 0 ELSE 1 END,event_date DESC LIMIT 8');
-  add('EVENTS:',rows,r=>`- ${r.title} — ${r.status}${r.event_date?', '+r.event_date:''}${r.event_time?', '+r.event_time:''}${r.venue?', at '+r.venue:''}`);
- }
- if(want('training|workshop|course|learn|skill')){
-  const rows=await grab('SELECT title,trainer,date_label FROM training_sessions WHERE published=1 ORDER BY sort_order LIMIT 8');
-  add('TRAINING SESSIONS:',rows,r=>`- ${r.title}${r.trainer?' — trainer '+r.trainer:''}${r.date_label?', '+r.date_label:''}`);
- }
- if(want('notice|announcement|news|deadline')){
-  const rows=await grab('SELECT title,body FROM notices WHERE published=1 ORDER BY created_at DESC LIMIT 5');
-  add('NOTICES:',rows,r=>`- ${r.title}: ${String(r.body||'').slice(0,240)}`);
- }
- if(want('committee|executive|president|secretary|leader|who is|treasurer|designation|vice|chair|adviser|advisor|moderator')){
-  const rows=rank(await grab("SELECT e.name,e.designation,e.department,s.label FROM executives e JOIN committee_sessions s ON s.id=e.session_id WHERE s.is_current=1 AND e.status='active' ORDER BY CASE e.tier WHEN 'advisor' THEN 0 WHEN 'leadership' THEN 1 WHEN 'roster' THEN 2 ELSE 3 END,e.sort_order LIMIT 20"),'name','designation').slice(0,12);
-  add('CURRENT EXECUTIVE COMMITTEE:',rows,r=>`- ${r.designation}: ${r.name}${r.department?' ('+r.department+')':''} [term ${r.label}]`);
- }
- if(want('alumni|graduate|former')){
-  const rows=await grab('SELECT name,graduation_year,occupation,organization,standing FROM alumni WHERE published=1 ORDER BY sort_order LIMIT 10');
-  add('ALUMNI:',rows,r=>`- ${r.name}${r.graduation_year?', '+r.graduation_year:''}${r.occupation?', '+r.occupation:''}${r.organization?' at '+r.organization:''} (${r.standing})`);
- }
- if(want('blog|article|post|write')){
-  const rows=await grab("SELECT title,author,post_date,excerpt FROM blog_posts WHERE status='published' ORDER BY post_date DESC LIMIT 5");
-  add('BLOG ARTICLES:',rows,r=>`- ${r.title}${r.author?' by '+r.author:''}${r.post_date?' ('+r.post_date+')':''}${r.excerpt?': '+String(r.excerpt).slice(0,160):''}`);
- }
- if(want('join|member|membership|apply|application|recruit|how do i|register|fee|payment|bkash|nagad')){
-  /* Read the live switch rather than describing the form as always open — telling
-     a student to apply during a closed month would be a wrong answer. */
-  const rs=publicRecruitment(await getRecruitment(env));
-  out.push('HOW TO JOIN:\n- '+(rs.open
-   ? 'Member recruitment is OPEN right now. Apply through the Join IURS form at /join.html.'+(rs.closesOn?' It closes on '+rs.closesOn+'.':'')
-   : 'Member recruitment is CLOSED right now, so the form at /join.html cannot be submitted.'+(rs.opensOn?' It opens on '+rs.opensOn+'.':' The next call for members is announced on this website and on the IURS Facebook page.'))
-   +'\n- The form asks for name, student/IURS ID, department, session, year, email, phone, research interests, skills, previous research experience and reasons for joining.'
-   +(rs.requirePayment&&rs.fee?`\n- There is a membership fee of ${rs.fee} ${rs.currency}, paid to ${rs.payTo}${rs.payToLabel?' ('+rs.payToLabel+')':''} by ${rs.methods.join(', ')||'mobile banking'}. The transaction ID from the receipt must be entered on the form.`:'')
-   +'\n- Every application stays pending until the executive team checks it'+(rs.requirePayment?' and matches the transaction ID against the society payment record':'')+'. The team then replies by email.');
- }
- if(want('gallery|photo|picture|image')){
-  const c=await grab('SELECT COUNT(*) n FROM gallery_images WHERE published=1');
-  add('GALLERY:',c,r=>`- ${r.n} photographs are published in the gallery at /gallery.html, grouped by category.`);
- }
- /* Deliberately NO catch-all here. If nothing above matched, the question is about
-    something IURS has no record of, and the assistant must say so rather than
-    answering with unrelated rows that look like an answer. */
- return out.join('\n\n')}
-async function chat(req,env){
- if(!sameOrigin(req))return json({error:'Invalid origin'},403);
- const b=await body(req);const q=cleanText(b.message,500);
- if(!q)return json({error:'Please type a question.'},400);
- const ip=req.headers.get('CF-Connecting-IP')||'unknown';
- const key=await sha256Base64('chat|'+ip);
- try{
-  const n=await env.DB.prepare("SELECT COUNT(*) c FROM login_attempts WHERE attempt_key=? AND created_at>datetime('now','-1 hour')").bind(key).first();
-  if(Number(n?.c||0)>=60)return json({reply:'You have asked a lot of questions in the last hour. Please try again a little later, or email iuresearchsociety@gmail.com.'});
-  await env.DB.prepare('INSERT INTO login_attempts(attempt_key) VALUES(?)').bind(key).run();
- }catch(e){console.error('chat rate limit skipped',e)}
- const facts=await chatFacts(env,q);
- const fallback=facts
-  ? 'Here is what the IURS website has on that:\n\n'+facts+'\n\nIf this does not answer your question, please email iuresearchsociety@gmail.com.'
-  : 'I do not have that information on the IURS website. Please email iuresearchsociety@gmail.com and the team will help you.\n\nYou can ask me about '+CHAT_TOPICS+'.';
- if(!env.AI)return json({reply:fallback,grounded:true,model:'facts-only'});
- const system='You are the assistant on the Islamic University Research Society (IURS) website. Answer ONLY using the FACTS block below and the ABOUT IURS block. You must never add, guess, estimate or invent any name, number, date, title, award or achievement. If the answer is not in those blocks, reply exactly: "I do not have that information on the IURS website. Please email iuresearchsociety@gmail.com and the team will help you." Keep replies under 120 words, plain and friendly, no markdown headings.\n\nABOUT IURS:\n'+CHAT_ABOUT+'\n\nFACTS:\n'+(facts||'(nothing relevant found)');
- try{
-  const r=await env.AI.run('@cf/meta/llama-3.1-8b-instruct',{max_tokens:320,temperature:0.1,messages:[{role:'system',content:system},{role:'user',content:q}]});
-  const reply=cleanText((r&&(r.response||r.result||''))||'',1500);
-  return reply?json({reply,grounded:true,model:'workers-ai'}):json({reply:fallback,grounded:true,model:'facts-only'});
- }catch(e){console.error('Workers AI unavailable',e);return json({reply:fallback,grounded:true,model:'facts-only'})}}
-
-export default {async fetch(request,env,ctx){const url=new URL(request.url);try{if(url.pathname.startsWith('/api/')){await ensureSchema(env);const user=await currentUser(request,env);if(request.method==='POST'&&url.pathname==='/api/auth/login')return await login(request,env);if(request.method==='POST'&&url.pathname==='/api/auth/logout')return await logout(request,env);if(request.method==='POST'&&url.pathname==='/api/auth/change-password')return await changePassword(request,env,user);if(request.method==='POST'&&url.pathname==='/api/setup/initial-admin')return await setup(request,env);if(request.method==='GET'&&url.pathname==='/api/auth/me')return json({authenticated:!!user,user});if(url.pathname.startsWith('/api/admin/')){if(user&&user.must_change_password)return json({error:'For security, please set a new password before managing content.',code:'must_change_password'},403);return await adminApi(request,env,user,url.pathname)}if(url.pathname.startsWith('/api/public/'))return await publicApi(request,env,url.pathname);if(url.pathname==='/api/health')return json({ok:true,service:'IURS full-stack backend'});return json({error:'Not found'},404)}
-if(url.pathname.startsWith('/uploads/')){if(request.method!=='GET'&&request.method!=='HEAD')return json({error:'Method not allowed'},405);
- let key;try{key=decodeURIComponent(url.pathname.slice(9))}catch{return new Response('Not found',{status:404})}
- if(!key||key.includes('..')||key.startsWith('/'))return new Response('Not found',{status:404});
- // R2 first when the bucket is attached, then the D1 copy. Uploads made while R2 was
- // switched off live in media_blobs, so both places have to be checked or a photo
- // uploaded last week would vanish the day R2 gets enabled.
- if(env.MEDIA){try{const obj=await env.MEDIA.get(key);if(obj){const uh=new Headers();obj.writeHttpMetadata(uh);uh.set('etag',obj.httpEtag);uh.set('Cache-Control','public, max-age=31536000, immutable');uh.set('X-Content-Type-Options','nosniff');return new Response(request.method==='HEAD'?null:obj.body,{headers:uh})}}catch(e){console.error('R2 get failed',e)}}
- let row=null;try{row=await env.DB.prepare('SELECT content_type,bytes,size FROM media_blobs WHERE key=?').bind(key).first()}catch(e){console.error('media_blobs get failed',e)}
- if(!row||!row.bytes)return new Response('Not found',{status:404});
- // D1 hands a BLOB back as an array of byte values; other engines hand back a typed
- // array. Accept whichever shape arrives rather than assuming one of them.
- const raw=row.bytes;
- const body=raw instanceof Uint8Array?raw:raw instanceof ArrayBuffer?new Uint8Array(raw):new Uint8Array(Array.isArray(raw)?raw:[]);
- const etag='"'+key.replace(/[^\w.-]/g,'')+'-'+(row.size||body.length)+'"';
- const uh=new Headers({'content-type':row.content_type||'application/octet-stream','content-length':String(body.length),etag,'Cache-Control':'public, max-age=31536000, immutable','X-Content-Type-Options':'nosniff'});
- if((request.headers.get('if-none-match')||'')===etag)return new Response(null,{status:304,headers:uh});
- return new Response(request.method==='HEAD'?null:body,{headers:uh})}
-if(url.pathname==='/robots.txt')return new Response(`User-agent: *\nAllow: /\nDisallow: /admin.html\nDisallow: /dashboard.html\nDisallow: /login.html\nDisallow: /setup.html\nDisallow: /api/\n\nSitemap: ${url.origin}/sitemap.xml\n`,{headers:{'content-type':'text/plain; charset=utf-8','cache-control':'public, max-age=86400'}});
-if(url.pathname==='/sitemap.xml'){
- // Google prefers a real <lastmod>, so take it from the newest thing actually published.
- // Wrapped in try/catch: a database hiccup must never be able to break the sitemap.
- let stamp=null;
- try{const r=await env.DB.prepare("SELECT MAX(t) t FROM (SELECT MAX(COALESCE(updated_at,created_at)) t FROM notices UNION ALL SELECT MAX(COALESCE(updated_at,created_at)) FROM events UNION ALL SELECT MAX(COALESCE(updated_at,created_at)) FROM blog_posts UNION ALL SELECT MAX(COALESCE(updated_at,created_at)) FROM publications UNION ALL SELECT MAX(COALESCE(updated_at,created_at)) FROM gallery_images)").first();
-  if(r&&r.t){const d=new Date(String(r.t).trim().replace(' ','T')+(String(r.t).endsWith('Z')?'':'Z'));if(!isNaN(d))stamp=d.toISOString()}}catch(e){console.error('sitemap lastmod skipped',e)}
- const lm=stamp?`<lastmod>${stamp}</lastmod>`:'';
- // How often each page really changes, rather than one blanket guess for all twelve.
- const pages=[['/','daily','1.0'],['/notices.html','daily','0.9'],['/publications.html','weekly','0.8'],['/blog.html','weekly','0.8'],['/events.html','weekly','0.8'],['/join.html','monthly','0.8'],['/about.html','monthly','0.7'],['/training-session.html','monthly','0.7'],['/gallery.html','monthly','0.7'],['/executive-committee.html','monthly','0.7'],['/alumni.html','monthly','0.6'],['/contact.html','monthly','0.6']];
- return new Response(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map(([p,cf,pr])=>`  <url><loc>${url.origin}${p}</loc>${lm}<changefreq>${cf}</changefreq><priority>${pr}</priority></url>`).join('\n')}\n</urlset>\n`,{headers:{'content-type':'application/xml; charset=utf-8','cache-control':'public, max-age=86400'}})}
-const asset=await env.ASSETS.fetch(request);const h=new Headers(asset.headers);h.set('X-Content-Type-Options','nosniff');h.set('Referrer-Policy','strict-origin-when-cross-origin');h.set('X-Frame-Options','SAMEORIGIN');const out=new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers:h});
-// Search engines and social previews need FULL urls. The pages carry data-abs="/page.html"
-// and we fill in the real hostname here, so no domain is ever hard-coded in the files.
-if(typeof HTMLRewriter!=='undefined'&&asset.status===200&&(h.get('content-type')||'').includes('text/html')){try{return new HTMLRewriter().on('[data-abs]',{element(el){const p=el.getAttribute('data-abs')||'';el.setAttribute(el.tagName==='link'?'href':'content',url.origin+p);el.removeAttribute('data-abs')}}).transform(out)}catch(e){console.error('HTMLRewriter skipped',e)}}
-return out}catch(e){console.error(e);
-// Last line of defence: an unexpected bug must never blank the public website.
-if(url.pathname.startsWith('/api/'))return json({error:'Server error. Please try again.'},500);
-try{return await env.ASSETS.fetch(request)}catch(e2){console.error(e2);return new Response('The website is temporarily unavailable. Please refresh in a moment.',{status:503,headers:{'content-type':'text/plain; charset=utf-8'}})}}}};

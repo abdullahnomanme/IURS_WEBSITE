@@ -252,6 +252,21 @@ d2 = await u2.clone().json();
 check('a notice attachment uploads with R2 off too', u2.status === 200 && /^\/uploads\/notices\//.test(d2.url || ''), u2.status + ' ' + JSON.stringify(d2));
 r = await worker.fetch(new Request(ORIGIN + d2.url), noR2, {});
 check('and the PDF is served back as a PDF', r.status === 200 && r.headers.get('content-type') === 'application/pdf', 'got ' + r.headers.get('content-type'));
+
+/* Event and training images use dedicated upload endpoints so their forms no longer
+   require an external URL. Keep these checks in the same no-R2 environment because
+   that is the path the live dashboard uses when the optional R2 binding is absent. */
+let eventUpload = await upNoR2(png, 'event.png', 'image/png', '/api/admin/events/upload');
+let eventUploadData = await eventUpload.clone().json();
+check('event image uploads without an external URL', eventUpload.status === 200 && /^\/uploads\/events\//.test(eventUploadData.url || ''), eventUpload.status + ' ' + JSON.stringify(eventUploadData));
+let eventCreated = await hit('/api/admin/events', { method: 'POST', json: { title: 'Uploaded Event', date: '2099-02-02', imageUrl: eventUploadData.url } });
+check('event keeps the uploaded image path', eventCreated.status === 200 && db.prepare("SELECT image_url FROM events WHERE title='Uploaded Event'").all()[0].image_url === eventUploadData.url, JSON.stringify(eventCreated.body));
+let trainingUpload = await upNoR2(png, 'training.png', 'image/png', '/api/admin/training/upload');
+let trainingUploadData = await trainingUpload.clone().json();
+check('training image uploads without an external URL', trainingUpload.status === 200 && /^\/uploads\/training\//.test(trainingUploadData.url || ''), trainingUpload.status + ' ' + JSON.stringify(trainingUploadData));
+let trainingCreated = await hit('/api/admin/training', { method: 'POST', json: { title: 'Uploaded Training', imageUrl: trainingUploadData.url } });
+check('training keeps the uploaded image path', trainingCreated.status === 200 && db.prepare("SELECT image_url FROM training_sessions WHERE title='Uploaded Training'").all()[0].image_url === trainingUploadData.url, JSON.stringify(trainingCreated.body));
+
 db.prepare('DELETE FROM media_blobs').run();
 
 section('9. Training session management');
@@ -260,7 +275,7 @@ check('empty training title rejected', r.status === 400);
 r = await hit('/api/admin/training', { method: 'POST', json: { title: 'Academic Writing Bootcamp', trainer: 'Dr Example', dateLabel: 'Starting soon' } });
 check('training session added', r.status === 200, JSON.stringify(r.body));
 r = await hit('/api/public/training');
-check('now 7 sessions public', r.body.training.length === 7, 'got ' + r.body.training.length);
+check('now 8 sessions public', r.body.training.length === 8, 'got ' + r.body.training.length);
 
 section('10. Role boundaries: executive vs admin vs member');
 await hit('/api/admin/members', { method: 'POST', json: { iursId: 'IURS-EXEC-1', name: 'Exec One', role: 'executive', position: 'Treasurer', password: 'ExecPassword2026' } });
@@ -875,60 +890,110 @@ r = await worker.fetch(new Request(ORIGIN + '/api/public/committee'), { ...env, 
 check('a database failure on the new pages fails cleanly, without leaking details',
   r.status === 500 && !/D1 down/.test(JSON.stringify(await r.json())));
 
-
 /* ------------------------------------------------------------------
-   19. Upgrading a database that predates the new columns.
-   The live database already had an `applications` table without any of the
-   payment columns. CREATE TABLE IF NOT EXISTS is a no-op there, so a new index
-   over one of those columns ran before ALTER TABLE could add it, ensureSchema
-   rejected, and every single API call answered 500 — while this suite stayed
-   green because its database is always built fresh from the new CREATE TABLE.
-   This section reproduces the old shape on purpose.
+   21. CMS upgrade: computed event status, notice expiry, derived
+   statistics, homepage manager, campaigns, audit log.
    ------------------------------------------------------------------ */
-{
-  const old = new DatabaseSync(':memory:');
-  // Exactly the table the production database had before the payment work.
-  old.exec(`CREATE TABLE applications (id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,
-    student_id TEXT,department TEXT,academic_session TEXT,email TEXT,phone TEXT,research_interests TEXT,
-    skills TEXT,experience TEXT,motivation TEXT,status TEXT NOT NULL DEFAULT 'pending',admin_notes TEXT,
-    source_key TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
-  old.exec(`INSERT INTO applications(name,email,department,motivation) VALUES('Older Applicant','old@example.com','Statistics','Wrote in before the fee existed.')`);
+section('21. Event status is computed from the date, with an optional override');
 
-  const oldPrepare = sql => { let a = []; const api = {
-    bind(...x) { a = x; return api; },
-    async first() { return old.prepare(sql).all(...norm(a))[0] ?? null; },
-    async all() { return { results: old.prepare(sql).all(...norm(a)) }; },
-    async run() { old.prepare(sql).run(...norm(a)); return { success: true }; } }; return api; };
-  const oldEnv = { ...env, DB: { prepare: oldPrepare, async batch(l) { const o = []; for (const s of l) o.push(await s.run()); return o; } } };
+r = await hit('/api/admin/events', { method: 'POST', json: { title: 'Long Past Workshop', date: '2020-01-15' } });
+check('an event can be created with only a past date', r.status === 200, JSON.stringify(r.body));
+r = await hit('/api/admin/events', { method: 'POST', json: { title: 'Far Future Summit', date: '2099-06-01' } });
+check('an event can be created with only a future date', r.status === 200);
+r = await hit('/api/public/events', { cookie: false });
+const pastEv = r.body.find(e => e.title === 'Long Past Workshop');
+const futureEv = r.body.find(e => e.title === 'Far Future Summit');
+check('a past-dated event reads as past even though it was stored as upcoming',
+  pastEv && pastEv.status === 'past' && pastEv.is_upcoming === false, JSON.stringify(pastEv).slice(0, 140));
+check('a future-dated event reads as upcoming', futureEv && futureEv.status === 'upcoming' && futureEv.is_upcoming === true);
+check('upcoming events come before past ones', r.body.indexOf(futureEv) < r.body.indexOf(pastEv));
+r = await hit('/api/admin/events');
+check('the admin list uses the same computed status', (r.body.find(e => e.title === 'Long Past Workshop') || {}).status === 'past');
 
-  // A fresh module instance: ensureSchema memoizes its promise per module, so the
-  // query string is what lets the schema run a second time against this database.
-  const fresh = (await import('./index.mjs?upgrade=1')).default;
-  const call = (p, o = {}) => fresh.fetch(new Request(ORIGIN + p, { headers: { Origin: ORIGIN }, ...o }), oldEnv, {});
+r = await hit('/api/admin/events/' + pastEv.id, { method: 'PUT', json: { title: 'Long Past Workshop', date: '2020-01-15', statusOverride: 'upcoming' } });
+check('an explicit override wins over the date', r.status === 200);
+r = await hit('/api/public/events', { cookie: false });
+check('the overridden event now shows as upcoming',
+  (r.body.find(e => e.title === 'Long Past Workshop') || {}).status === 'upcoming');
+r = await hit('/api/admin/events/' + pastEv.id, { method: 'PUT', json: { title: 'Long Past Workshop', date: '2020-01-15', statusOverride: 'cancelled' } });
+r = await hit('/api/public/events', { cookie: false });
+check('an event can be marked cancelled regardless of date',
+  (r.body.find(e => e.title === 'Long Past Workshop') || {}).status === 'cancelled');
+r = await hit('/api/admin/events/' + pastEv.id, { method: 'PUT', json: { title: 'Long Past Workshop', date: '2020-01-15' } });
+r = await hit('/api/public/events', { cookie: false });
+check('clearing the override returns the event to date-based status',
+  (r.body.find(e => e.title === 'Long Past Workshop') || {}).status === 'past');
+r = await hit('/api/admin/events', { method: 'POST', json: { title: 'Undated Briefing', status: 'cancelled' } });
+r = await hit('/api/public/events', { cookie: false });
+check('an undated event keeps its stored status', (r.body.find(e => e.title === 'Undated Briefing') || {}).status === 'cancelled');
+r = await hit('/api/admin/events', { method: 'POST', json: { title: 'Featured Event', date: '2099-07-07', featured: true } });
+check('an event can be flagged featured', r.status === 200);
+r = await hit('/api/admin/events');
+check('the featured flag round-trips', (r.body.find(e => e.title === 'Featured Event') || {}).featured === 1);
 
-  let up = await call('/api/public/recruitment');
-  check('a database predating the payment columns still serves the public API',
-    up.status === 200, up.status + ' ' + (await up.clone().text()).slice(0, 160));
-  const upBody = await up.json();
-  check('and it reports the recruitment window rather than an error', upBody.open === false);
+section('22. Notices: expiry, archive, homepage flag, featured ordering');
 
-  up = await call('/api/public/stats');
-  check('the stats endpoint survives the upgrade too', up.status === 200);
+r = await hit('/api/admin/notices', { method: 'POST', json: { title: 'Expired Circular', body: 'This ran out.', published: true, expiryDate: '2020-01-01' } });
+check('a notice with a past expiry date can be saved', r.status === 200);
+r = await hit('/api/admin/notices', { method: 'POST', json: { title: 'Fresh Circular', body: 'Still valid.', published: true, expiryDate: '2099-01-01' } });
+r = await hit('/api/admin/notices', { method: 'POST', json: { title: 'Back Room Note', body: 'Public but not for the homepage.', published: true, showOnHomepage: false } });
+r = await hit('/api/admin/notices', { method: 'POST', json: { title: 'Headline Notice', body: 'Featured on the board.', published: true, featured: true, category: 'Announcement' } });
+r = await hit('/api/public/notices', { cookie: false });
+const pubIds = r.body.map(n => n.id);
+check('an expired notice has left the public board', !pubIds.includes(db.prepare("SELECT id FROM notices WHERE title='Expired Circular'").all()[0].id));
+check('a fresh notice is on the public board', pubIds.includes(db.prepare("SELECT id FROM notices WHERE title='Fresh Circular'").all()[0].id));
+check('featured notices sort ahead of ordinary ones of the same age',
+  pubIds.indexOf(db.prepare("SELECT id FROM notices WHERE title='Headline Notice'").all()[0].id) <
+  pubIds.indexOf(db.prepare("SELECT id FROM notices WHERE title='Back Room Note'").all()[0].id));
+r = await hit('/api/public/notices/archive', { cookie: false });
+const arcIds = r.body.map(n => n.id);
+check('the archive holds the expired notice and nothing that is still live',
+  arcIds.includes(db.prepare("SELECT id FROM notices WHERE title='Expired Circular'").all()[0].id) &&
+  arcIds.every(id => !pubIds.includes(id)), 'archive: ' + JSON.stringify(arcIds));
+check('expired notices are archived, never deleted',
+  db.prepare("SELECT COUNT(*) c FROM notices WHERE title='Expired Circular'").all()[0].c === 1);
+r = await hit('/api/admin/notices');
+const backRoom = r.body.find(n => n.title === 'Back Room Note');
+check('the homepage flag round-trips for the dashboard', backRoom && backRoom.show_on_homepage === 0);
+const headline = r.body.find(n => n.title === 'Headline Notice');
+check('the featured flag and category round-trip', headline && headline.featured === 1 && headline.category === 'Announcement');
 
-  const cols = new Set(old.prepare('PRAGMA table_info(applications)').all().map(r => r.name));
-  for (const c of ['payment_method', 'transaction_id', 'payment_amount', 'payment_sender',
-                   'payment_date', 'payment_status', 'payment_note', 'verified_at', 'verified_by', 'year_level']) {
-    check('the upgrade adds applications.' + c, cols.has(c));
-  }
-  const idx = old.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_applications_txn'").all();
-  check('the transaction-id index is created after the column exists, not before', idx.length === 1);
-  const kept = old.prepare("SELECT name,payment_status FROM applications WHERE email='old@example.com'").all()[0];
-  check('the application that was already there is untouched', kept && kept.name === 'Older Applicant');
-  check('and it defaults to an unverified payment', kept && kept.payment_status === 'unverified',
-    JSON.stringify(kept));
-}
+section('23. Statistics: derived from the database, pinned values win');
 
-console.log(`\n\x1b[1m${pass} passed, ${fail} failed\x1b[0m`);
-if (fail) { console.log('\nFailed:'); fails.forEach(f => console.log('  - ' + f)); }
-process.exit(fail ? 1 : 0);
+const liveUsers = db.prepare("SELECT COUNT(*) c FROM users WHERE status='active'").all()[0].c;
+const livePubs = db.prepare("SELECT COUNT(*) c FROM publications WHERE published_status='published'").all()[0].c;
+const livePeer = db.prepare("SELECT COUNT(*) c FROM publications WHERE published_status='published' AND category='peer_reviewed'").all()[0].c;
+const liveTrain = db.prepare('SELECT COUNT(*) c FROM training_sessions WHERE published=1').all()[0].c;
+r = await hit('/api/public/stats', { cookie: false });
+check('the member count is derived from real active accounts',
+  r.body.members.value === String(liveUsers) && r.body.members.derived === true, JSON.stringify(r.body.members));
+check('research outputs are derived from published publications', r.body.research_outputs.value === String(livePubs));
+check('peer-reviewed count is derived and labelled', r.body.peer_reviewed.value === String(livePeer) && /peer/i.test(r.body.peer_reviewed.label));
+check('workshops are derived from live training sessions', r.body.workshops.value === String(liveTrain));
+check('a pinned value still wins over the derived one', r.body.working_papers.value === '12+' && r.body.working_papers.derived === false);
+r = await hit('/api/admin/stats');
+check('the dashboard sees which numbers are derived',
+  r.status === 200 && r.body.derived && r.body.derived.members === true && r.body.derived.working_papers === false, JSON.stringify(r.body).slice(0, 160));
+
+section('24. Homepage manager: sections, ordering, hero copy');
+
+r = await hit('/api/public/homepage', { cookie: false });
+check('the homepage settings are public and defaulted',
+  r.status === 200 && r.body.sections && r.body.sections.hero === true && Array.isArray(r.body.order) && r.body.order[0] === 'hero', JSON.stringify(r.body).slice(0, 140));
+const featuredNoticeDbId = db.prepare("SELECT id FROM notices WHERE title='Headline Notice'").all()[0].id;
+r = await hit('/api/admin/homepage', { method: 'PUT', json: {
+  sections: { gallery: false, bogusSection: true },
+  order: ['blog', 'bogus', 'hero'],
+  featuredNoticeId: featuredNoticeDbId, homepageNoticeCount: 7,
+  heroTitle: 'Research can change the world', heroSubtitle: 'A community of student researchers' } });
+check('the admin can save homepage settings', r.status === 200, JSON.stringify(r.body).slice(0, 140));
+r = await hit('/api/public/homepage', { cookie: false });
+check('a hidden section stays hidden', r.body.sections.gallery === false);
+check('unknown sections are ignored, not stored', !('bogusSection' in r.body.sections));
+check('the order keeps only real sections and loses no duplicates',
+  r.body.order[0] === 'blog' && r.body.order[1] === 'hero' && !r.body.order.includes('bogus') &&
+  new Set(r.body.order).size === r.body.order.length && r.body.order.length >= 10, JSON.stringify(r.body.order));
+check('the featured notice and hero copy are published',
+  r.body.featuredNoticeId === featuredNoticeDbId && r.body.heroTitle === 'Research can change the world' && r.body.homepageNoticeCount === 7);
+r = await hit('/api/public/homepage', { method: 'PUT', json: { heroTitle: 'nope' }, cookie: false });
+check('the public cannot save homepage settings', r.status === 404, 'got ' + r.status);
