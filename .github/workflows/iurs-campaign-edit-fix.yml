@@ -1,0 +1,33 @@
+name: Preserve campaign image on edit
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, 'Preserve campaign image on edit')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch campaign edit state
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('public/admin.html'); s=p.read_text(encoding='utf-8')
+          old="window.editCp=id=>{const c=cpList.find(x=>x.id===id);if(!c)return;$('cpId').value=c.id;$('cpt').value=c.title;$('cpcode').value=c.code||'';$('cpso').value=c.sort_order??'';$('cpopen').checked=!!+c.open;$('cpreqpay').checked=!!+c.require_payment;$('cpopens').value=c.opens_on||'';$('cpcloses').value=c.closes_on||'';$('cpfee').value=c.fee||'';$('cpcurrency').value=c.currency||'';$('cpfeenote').value=c.fee_note||'';$('cpmethods').value=c.methods||'';$('cppayto').value=c.pay_to||'';$('cppaytolabel').value=c.pay_to_label||'';$('cpopenmsg').value=c.open_message||'';$('cpclosedmsg').value=c.closed_message||'';window.scrollTo({top:0,behavior:'smooth'})};"
+          new="window.editCp=id=>{const c=cpList.find(x=>x.id===id);if(!c)return;$('cpId').value=c.id;$('cpt').value=c.title;$('cpcode').value=c.code||'';$('cpso').value=c.sort_order??'';$('cpopen').checked=!!+c.open;$('cpreqpay').checked=!!+c.require_payment;$('cpopens').value=c.opens_on||'';$('cpcloses').value=c.closes_on||'';$('cpfee').value=c.fee||'';$('cpcurrency').value=c.currency||'';$('cpfeenote').value=c.fee_note||'';$('cpmethods').value=c.methods||'';$('cppayto').value=c.pay_to||'';$('cppaytolabel').value=c.pay_to_label||'';$('cpopenmsg').value=c.open_message||'';$('cpclosedmsg').value=c.closed_message||'';$('cpimg').value=c.image_url||'';$('cpPrev').src=c.image_url||'';$('cpPrev').hidden=!c.image_url;window.scrollTo({top:0,behavior:'smooth'})};"
+          if old not in s: raise SystemExit('campaign edit anchor not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+      - name: Commit and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/admin.html .github/workflows/iurs-campaign-edit-fix.yml
+          git rm .github/workflows/iurs-campaign-edit-fix.yml
+          git commit -m "Preserve campaign image on edit"
+          git push
