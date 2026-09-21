@@ -1,0 +1,37 @@
+name: IURS Admin UI v3
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, 'IURS Admin UI v3')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch admin UI polish
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('public/admin.html'); s=p.read_text(encoding='utf-8')
+          marker='/* iurs-admin-ui-v3 */'
+          css='''\n/* iurs-admin-ui-v3 */\n:root{--admin-accent:#9f1239;--admin-navy:#081a33;--admin-gold:#c9a24e}\nbody{background:radial-gradient(circle at 90% 0%,rgba(201,162,78,.08),transparent 25%),linear-gradient(180deg,#f8fafc 0%,#f3f5f8 100%)}\n.wrap{max-width:1600px;padding:30px 32px 48px}.layout{grid-template-columns:260px minmax(0,1fr);gap:30px}\n.tabs{border-radius:20px;box-shadow:0 18px 48px rgba(16,24,40,.08)}.tab{min-height:42px;display:flex!important;align-items:center}.tab.active{box-shadow:0 8px 20px rgba(143,23,56,.2)!important}\n.panel{border-radius:20px;box-shadow:0 10px 30px rgba(16,24,40,.055)}.field input,.field select,.field textarea{min-height:42px}.field input::placeholder,.field textarea::placeholder{color:#98a2b3}\n.dropzone{min-height:116px;border:1.5px dashed #cbd3dd;background:linear-gradient(180deg,#fcfdff,#f8fafc);transition:.18s}.dropzone:hover,.dropzone.drag{border-color:var(--admin-accent);box-shadow:0 0 0 4px rgba(159,18,57,.06),0 10px 24px rgba(16,24,40,.06);background:#fff8fa}\n.cms-media-field{grid-column:1/-1;padding:16px;border:1px solid #e7ebf0;border-radius:16px;background:linear-gradient(180deg,#fbfcfe,#f8fafc)}.cms-media-box{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:16px;align-items:center}.cms-media-preview{width:180px;height:120px;object-fit:cover;border-radius:14px;border:1px solid #e2e7ed;background:#f2f4f7;box-shadow:0 6px 18px rgba(16,24,40,.07)}\n.mini{border-radius:17px;box-shadow:0 4px 18px rgba(16,24,40,.045)}.mini .campaign-card-media{width:100%;height:148px;object-fit:cover;border-radius:12px;margin:0 0 13px}.campaign-kicker{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px}\n.section.active{animation:iursAdminIn .16s ease-out}@keyframes iursAdminIn{from{opacity:.75;transform:translateY(3px)}to{opacity:1;transform:none}}\n@media(max-width:900px){.layout{grid-template-columns:1fr}.tabs{position:sticky;top:78px;z-index:15;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.tab-group{grid-column:1/-1}.cms-media-box{grid-template-columns:1fr}.cms-media-preview{width:100%;height:180px}}\n@media(max-width:560px){.tabs{grid-template-columns:1fr}.cms-media-preview{height:160px}}\n'''
+          if marker not in s:
+              s=s.replace('</style>',css+'</style>',1)
+          s=s.replace('Click to choose a recruitment image','Upload recruitment banner / photo')
+          s=s.replace('Click to choose a campaign image','Upload campaign banner / photo')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/admin.html .github/workflows/iurs-admin-ui-v3.yml
+          git rm .github/workflows/iurs-admin-ui-v3.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "IURS Admin UI v3"
+          git push
