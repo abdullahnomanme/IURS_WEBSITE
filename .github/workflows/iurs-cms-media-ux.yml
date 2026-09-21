@@ -1,0 +1,43 @@
+name: Apply IURS recruitment media CMS patch
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, 'Apply IURS recruitment media CMS patch')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply focused patch
+        run: |
+          git fetch origin f92e040cf6bd0453aacea7999589ec88e17354f8 --depth=1
+          git show f92e040cf6bd0453aacea7999589ec88e17354f8:.github/workflows/iurs-cms-media-ux.yml > /tmp/patch-source.yml
+          awk '/python3 - <<'"'"'PY'"'"'/{on=1;next}/^          PY$/{on=0}on{print}' /tmp/patch-source.yml | sed 's/^          //' > /tmp/patch.py
+          sed -i '/^npm test$/d' /tmp/patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/patch.py'); lines=p.read_text().splitlines(); out=[]; i=0
+          while i < len(lines):
+              if "regex_once('public/admin.html'," in lines[i] and i+1 < len(lines) and 'editCp' in lines[i+1]:
+                  i += 1
+                  while i < len(lines) and 'window.archiveCp' not in lines[i]: i += 1
+                  i += 1
+                  continue
+              out.append(lines[i]); i += 1
+          p.write_text('\n'.join(out)+'\n')
+          PY
+          python3 /tmp/patch.py
+          echo 'Focused recruitment media/UI patch applied.'
+      - name: Commit patch and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/index.js public/admin.html public/join.html public/assets/iurs-content.js .github/workflows/iurs-cms-media-ux.yml
+          git rm .github/workflows/iurs-cms-media-ux.yml
+          git commit -m "Apply IURS recruitment media CMS patch"
+          git push
