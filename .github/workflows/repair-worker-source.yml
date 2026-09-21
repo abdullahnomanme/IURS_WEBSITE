@@ -18,31 +18,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate and repair Worker as an ES module
+      - name: Normalize the known Worker tail
         shell: python
         run: |
           from pathlib import Path
           import subprocess
           p = Path('src/index.js')
           s = p.read_text(encoding='utf-8')
-          check_file = Path('/tmp/iurs-index-check.mjs')
-          def check(text):
-              check_file.write_text(text, encoding='utf-8')
-              return subprocess.run(['node', '--check', str(check_file)], capture_output=True, text=True)
-          current = check(s)
-          if current.returncode == 0:
-              print('Worker ES-module syntax is valid; no repair needed.')
-          elif s.rstrip().endswith('};'):
-              fixed = s.rstrip()[:-2] + '}\n'
-              repaired = check(fixed)
-              if repaired.returncode:
-                  print(repaired.stderr)
-                  raise SystemExit(repaired.returncode)
+          stripped = s.rstrip()
+          if stripped.endswith('}\n};'):
+              fixed = stripped[:-2] + '\n'
               p.write_text(fixed, encoding='utf-8')
-              print('Removed the extra final object brace; Worker now parses as an ES module.')
+              print('Removed the redundant final object brace from the Worker source.')
           else:
-              print(current.stderr)
-              raise SystemExit(current.returncode)
+              print('Known bad tail not present; leaving source untouched.')
+          check_file = Path('/tmp/iurs-index-check.mjs')
+          check_file.write_text(p.read_text(encoding='utf-8'), encoding='utf-8')
+          check = subprocess.run(['node', '--check', str(check_file)], capture_output=True, text=True)
+          if check.returncode:
+              print(check.stderr)
+              raise SystemExit(check.returncode)
+          print('Worker source passes ES-module syntax validation.')
 
       - name: Commit repaired source
         shell: bash
@@ -54,5 +50,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/index.js
-          git commit -m "fix: correct Worker ES module closure"
+          git commit -m "fix: normalize Worker source tail"
           git push origin HEAD:main
