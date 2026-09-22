@@ -25,7 +25,7 @@ jobs:
         run: |
           from pathlib import Path
           from urllib.request import urlopen
-          import re, subprocess
+          import re
 
           p = Path('src/index.js')
           s = p.read_text(encoding='utf-8').rstrip()
@@ -40,7 +40,7 @@ jobs:
           if not m:
               raise SystemExit('Could not recover the known-good Worker tail from repair workflow.')
 
-          tail = m.group(1).replace('\\n', '\n')
+          tail = m.group(1)
           p.write_text(s + tail, encoding='utf-8')
           print('Restored Worker public API and default export from the repository repair source.')
 
