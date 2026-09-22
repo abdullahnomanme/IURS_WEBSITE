@@ -1,1 +1,3 @@
-Temporary deployment-repair trigger. The repair workflow will remove this file after restoring the Worker module tail.
+Temporary deployment-repair trigger.
+
+Re-run the Worker-tail repair against the current main commit, then remove this trigger file after repair.
