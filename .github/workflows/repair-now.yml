@@ -1,0 +1,66 @@
+name: Repair IURS Worker now
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: iurs-worker-repair
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore Worker public API and export
+        shell: python
+        run: |
+          from pathlib import Path
+          from urllib.request import urlopen
+          import re, subprocess
+
+          p = Path('src/index.js')
+          s = p.read_text(encoding='utf-8').rstrip()
+          marker = "\nasync function publicApi(req,env,path){"
+          if marker in s:
+              print('Worker public API already present; nothing to repair.')
+              raise SystemExit(0)
+
+          url = 'https://raw.githubusercontent.com/abdullahnomanme/IURS_WEBSITE/main/.github/workflows/repair-worker-tail.yml'
+          workflow = urlopen(url, timeout=30).read().decode('utf-8')
+          m = re.search(r"tail = r'''(.*?)'''", workflow, re.S)
+          if not m:
+              raise SystemExit('Could not recover the known-good Worker tail from repair workflow.')
+
+          tail = m.group(1).replace('\\n', '\n')
+          p.write_text(s + tail, encoding='utf-8')
+          print('Restored Worker public API and default export from the repository repair source.')
+
+      - name: Validate repaired Worker
+        run: |
+          node --check src/index.js
+          tail -n 5 src/index.js
+
+      - name: Run application tests
+        run: npm install --no-audit --no-fund && npm test
+
+      - name: Commit repaired Worker
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- src/index.js; then
+            echo "No Worker repair was necessary."
+            exit 0
+          fi
+          git add src/index.js
+          git commit -m "fix: restore complete Worker runtime"
+          git push origin HEAD:main
