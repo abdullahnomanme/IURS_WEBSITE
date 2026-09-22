@@ -37,19 +37,6 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Normalize Worker source for verification and deployment
-        shell: python
-        run: |
-          from pathlib import Path
-          p = Path('src/index.js')
-          s = p.read_text(encoding='utf-8')
-          stripped = s.rstrip()
-          if stripped.endswith('}\n};'):
-              p.write_text(stripped[:-2] + '\n', encoding='utf-8')
-              print('Normalized the known redundant Worker tail.')
-          else:
-              print('No Worker tail normalization required.')
-
       - name: Validate Worker source
         run: |
           cp src/index.js /tmp/iurs-index-check.mjs
