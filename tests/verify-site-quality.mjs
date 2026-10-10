@@ -25,14 +25,15 @@ const pages = [
 console.log('\n\x1b[1mPublic-page SEO and metadata\x1b[0m');
 for (const [file,url] of pages) {
   const html = readFileSync(path.join(root,'public',file),'utf8');
-  const canonical = html.match(/<link\\b[^>]*rel=["']canonical["'][^>]*>/i)?.[0] || '';\n  check(file + ' has canonical URL', canonical.includes('href="' + url + '"'));
+  const canonical = html.match(/<link\b[^>]*rel=["']canonical["'][^>]*>/i)?.[0] || '';
+  check(file + ' has canonical URL', canonical.includes('href="' + url + '"'));
   check(file + ' has social-sharing metadata', html.includes('property="og:title"') && html.includes('name="twitter:card"'));
   check(file + ' retains a meta description', /<meta\b(?=[^>]*\bname=["']description["'])[^>]*>/i.test(html));
 }
 console.log('\n\x1b[1mPrivate portal indexing safeguards\x1b[0m');
 for (const file of ['admin.html','dashboard.html','login.html','setup.html']) {
   const html = readFileSync(path.join(root,'public',file),'utf8');
-  check(file + ' is excluded from indexing', /<meta\s+name=["']robots["']\s+content=["']noindex, nofollow["']/i.test(html));
+  check(file + ' is excluded from indexing', /<meta\s+name=["']robots["']\s+content=["']noindex\s*,\s*nofollow["']/i.test(html));
 }
 console.log('\n\x1b[1mShared design and sitemap\x1b[0m');
 const css = readFileSync(path.join(root,'public/assets/iurs-polish.css'),'utf8');
