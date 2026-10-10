@@ -10,7 +10,7 @@ function check(label, ok) {
   else { fail++; console.log('  \x1b[31mFAIL\x1b[0m ' + label); }
 }
 const pages = [
-  ['index.html','https://iurs.org.bd/index.html'],
+  ['index.html','https://iurs.org.bd/'],
   ['about.html','https://iurs.org.bd/about.html'],
   ['alumni.html','https://iurs.org.bd/alumni.html'],
   ['blog.html','https://iurs.org.bd/blog.html'],
@@ -27,8 +27,8 @@ console.log('\n\x1b[1mPublic-page SEO and metadata\x1b[0m');
 for (const [file,url] of pages) {
   const html = readFileSync(path.join(root,'public',file),'utf8');
   const canonical = html.match(/<link\b[^>]*rel=["']canonical["'][^>]*>/i)?.[0] || '';
-  const canonicalHref = canonical.match(/\bhref=["']([^"']+)["']/i)?.[1] || '';
-  const canonicalUrl = canonicalHref ? new URL(canonicalHref, 'https://iurs.org.bd').href : '';
+  const canonicalPath = canonical.match(/\bdata-abs=["']([^"']+)["']/i)?.[1] || canonical.match(/\bhref=["']([^"']+)["']/i)?.[1] || '';
+  const canonicalUrl = canonicalPath ? new URL(canonicalPath, 'https://iurs.org.bd').href : '';
   check(file + ' has canonical URL', canonicalUrl === url);
   check(file + ' has social-sharing metadata', html.includes('property="og:title"') && html.includes('name="twitter:card"'));
   check(file + ' retains a meta description', /<meta\b(?=[^>]*\bname=["']description["'])[^>]*>/i.test(html));
