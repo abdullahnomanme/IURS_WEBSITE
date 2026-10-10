@@ -330,7 +330,7 @@
     if (memCount) memCount.textContent = String(members.length);
 
     var p = document.getElementById('committee-lead');
-    if (p) {
+    if (p && (!location.hash || location.hash === '#executive' || location.hash === '#roster')) {
       var total = lead.length + roster.length;
       var label = session.label || 'current term';
       p.textContent = (session.description ? session.description + ' ' : '') +
