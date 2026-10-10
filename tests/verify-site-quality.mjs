@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,6 +35,13 @@ console.log('\n\x1b[1mPrivate portal indexing safeguards\x1b[0m');
 for (const file of ['admin.html','dashboard.html','login.html','setup.html']) {
   const html = readFileSync(path.join(root,'public',file),'utf8');
   check(file + ' is excluded from indexing', /<meta\s+name=["']robots["']\s+content=["']noindex\s*,\s*nofollow["']/i.test(html));
+}
+console.log('\n\x1b[1mJavaScript syntax checks\x1b[0m');
+for (const file of ['iurs-content.js','iurs-live.js']) {
+  const target = path.join(root,'public/assets',file);
+  const result = spawnSync(process.execPath,['--check',target],{encoding:'utf8'});
+  check(file + ' parses without syntax errors', result.status === 0);
+  if (result.status !== 0) console.error((result.stderr || result.stdout || '').trim());
 }
 console.log('\n\x1b[1mShared design and sitemap\x1b[0m');
 const css = readFileSync(path.join(root,'public/assets/iurs-polish.css'),'utf8');
