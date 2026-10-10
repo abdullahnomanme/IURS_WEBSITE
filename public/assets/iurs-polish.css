@@ -992,3 +992,23 @@ table td { color: #273449; }
   background: #f8eef1 !important;
 }
 .gallery-card-body h3 { color: #182235 !important; }
+
+
+/* IURS in Action cards: explicit dark caption text on light cards */
+#voices .testi-card,
+#voices .testi-card > div:last-child {
+  background: #ffffff !important;
+}
+#voices .testi-card .testi-name {
+  color: #172033 !important;
+  -webkit-text-fill-color: #172033 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  font-weight: 800 !important;
+}
+#voices .testi-card .testi-role {
+  color: #566174 !important;
+  -webkit-text-fill-color: #566174 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
