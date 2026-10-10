@@ -276,7 +276,7 @@
     var allLeadership = (session.leadership || []);
     /* Only President and General Secretary get the large featured cards. Other
        office-bearers stay in the same committee roster, avoiding duplicate sections. */
-    var featured = allLeadership.filter(function (r) { return /president|general secretary/i.test(String(r.designation || '')); });
+    var featured = allLeadership.filter(function (r) { return /^(president|general secretary|secretary general)$/i.test(String(r.designation || '').trim()); });
     var lead = featured.slice(0, 2);
     var roster = allLeadership.filter(function (r) { return lead.indexOf(r) === -1; }).concat(session.roster || []);
     if (grid) {
