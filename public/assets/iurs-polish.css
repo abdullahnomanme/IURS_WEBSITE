@@ -1852,3 +1852,74 @@ body.iurs-event-modal-open{overflow:hidden}
   #advisors .exec-photo,
   #members .exec-photo { margin-bottom: 13px; aspect-ratio: 4 / 4.6; }
 }
+
+
+/* Executive leadership: prominent, centered rectangular portraits for top officers */
+#exec-leadership {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 280px)) !important;
+  justify-content: center !important;
+  align-items: stretch !important;
+  gap: 24px !important;
+  max-width: 680px;
+  margin: 0 auto 34px !important;
+}
+#exec-leadership > .exec-card {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  padding: 26px 22px 24px !important;
+}
+#exec-leadership .exec-photo {
+  width: 100% !important;
+  height: 250px !important;
+  max-width: 230px;
+  margin: 0 auto 20px !important;
+  padding: 0 !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+  background: #a4112f;
+  box-shadow: 0 8px 24px rgba(16,20,28,.12) !important;
+}
+#exec-leadership .exec-photo img,
+#exec-leadership .exec-photo-placeholder {
+  display: flex;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 12px !important;
+  object-fit: cover;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  font-weight: 800;
+}
+#exec-leadership .exec-photo-placeholder {
+  background: #a4112f;
+  color: #fff;
+}
+#exec-leadership .exec-name {
+  font-size: clamp(17px, 2vw, 21px);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+#exec-leadership .exec-role {
+  margin-top: 10px;
+}
+@media (max-width: 520px) {
+  #exec-leadership {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+  #exec-leadership > .exec-card {
+    padding: 16px 10px 18px !important;
+    border-radius: 16px !important;
+  }
+  #exec-leadership .exec-photo {
+    height: clamp(130px, 42vw, 190px) !important;
+    margin-bottom: 14px !important;
+    border-radius: 12px !important;
+  }
+  #exec-leadership .exec-name { font-size: 15px; }
+  #exec-leadership .exec-role { font-size: 10px; white-space: normal; }
+  #exec-leadership .exec-dept { font-size: 11px; }
+}
