@@ -984,14 +984,14 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 #executive{padding-bottom:18px}#roster{padding-top:10px!important;background:var(--shadeColor)}
 #exec-leadership{grid-template-columns:repeat(2,minmax(0,300px));justify-content:center;gap:26px}
 #exec-leadership .exec-card{padding:20px;border-radius:20px;box-shadow:0 14px 36px rgba(12,27,48,.11);text-align:center}
-#exec-leadership .exec-photo{height:300px;max-height:300px;border-radius:15px;overflow:hidden}
-#exec-leadership .exec-photo img{width:100%;height:100%;object-fit:cover}
+#exec-leadership .exec-photo{height:auto;aspect-ratio:4/5;max-height:360px;border-radius:15px;overflow:hidden;background:#eef1f6;display:flex;align-items:center;justify-content:center}
+#exec-leadership .exec-photo img{width:100%;height:100%;object-fit:contain;object-position:center center;background:#eef1f6}
 #exec-leadership .exec-name{font-size:20px;font-weight:800;margin-top:16px}
 #exec-leadership .exec-role{font-size:13px;font-weight:800}
 #roster .inner-sec-header{margin-top:0}
 #roster .exec-roster-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
-@media(max-width:900px){#exec-leadership{grid-template-columns:repeat(2,minmax(0,1fr))}#exec-leadership .exec-photo{height:250px}#roster .exec-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:560px){.people-view-tabs{gap:7px}.people-view-tabs a{padding:9px 12px;font-size:12px}#exec-leadership{grid-template-columns:1fr;max-width:360px;margin-inline:auto}#exec-leadership .exec-photo{height:320px}#roster .exec-roster-grid{grid-template-columns:1fr}}
+@media(max-width:900px){#exec-leadership{grid-template-columns:repeat(2,minmax(0,300px));justify-content:center}#exec-leadership .exec-photo{max-height:320px}#roster .exec-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){#exec-leadership{grid-template-columns:repeat(2,minmax(0,1fr));max-width:520px;margin-inline:auto;gap:12px}#exec-leadership .exec-card{padding:12px}#exec-leadership .exec-photo{max-height:280px}#roster .exec-roster-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -1033,7 +1033,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 </div>
 </a>
 <ul class="nav-menu">
-<li><a href="index.html">Home</a></li><li><a href="events.html">Post &amp; Events <i class="fas fa-chevron-down"></i></a><ul class="dropdown"><li><a href="events.html#upcoming">Upcoming Events</a></li><li><a href="events.html#past">Past Events</a></li><li><a href="notices.html">Notices</a></li><li><a href="blog.html">News &amp; Blog</a></li></ul></li><li><a class="active" href="executive-committee.html">People <i class="fas fa-chevron-down"></i></a><ul class="dropdown"><li><a href="executive-committee.html">Executive Committee</a></li><li><a href="executive-committee.html">General Members</a></li><li><a href="executive-committee.html">Advisors</a></li><li><a href="alumni.html">Alumni</a></li></ul></li><li><a href="training-session.html">Training Session</a></li><li><a href="publications.html">Publication</a></li><li><a href="gallery.html">Gallery</a></li><li><a href="about.html">About Us</a></li>
+<li><a href="index.html">Home</a></li><li><a href="events.html">Post &amp; Events <i class="fas fa-chevron-down"></i></a><ul class="dropdown"><li><a href="events.html#upcoming">Upcoming Events</a></li><li><a href="events.html#past">Past Events</a></li><li><a href="notices.html">Notices</a></li><li><a href="blog.html">News &amp; Blog</a></li></ul></li><li><a class="active" href="executive-committee.html#executive">People <i class="fas fa-chevron-down"></i></a><ul class="dropdown"><li><a href="executive-committee.html#executive">Executive Committee</a></li><li><a href="executive-committee.html#members">General Members</a></li><li><a href="executive-committee.html#advisors">Advisors</a></li><li><a href="alumni.html">Alumni</a></li></ul></li><li><a href="training-session.html">Training Session</a></li><li><a href="publications.html">Publication</a></li><li><a href="gallery.html">Gallery</a></li><li><a href="about.html">About Us</a></li>
 </ul>
 <div class="nav-cta">
 <a class="btn-apply" href="join.html">Join IURS</a>
@@ -1063,7 +1063,6 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <div class="page-banner-inner">
 <h1>Executive Committee</h1>
 <div class="page-banner-rule"></div>
-<div class="people-jump-links people-view-tabs" aria-label="People sections"><a href="#executive" data-people-view="committee" class="active" aria-current="page">Leadership &amp; Committee</a><a href="#advisors" data-people-view="advisors">Advisor Panel</a><a href="#members" data-people-view="members">General Members</a></div>
 <div class="page-banner-breadcrumb"><a href="index.html">Home</a> <span>/</span> <span class="current">People</span></div>
 <p id="committee-lead" style="color:rgba(255,255,255,.8);max-width:620px;margin:16px auto 0;font-size:15px;line-height:1.7;">The 29-member executive committee leading IURS for the term 2025-2026.</p>
 </div>
@@ -1199,11 +1198,11 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <!-- ADVISOR PANEL — filled from /api/public/committee (tier "advisor").
      Hidden until the committee actually adds an advisor from the dashboard, so an
      empty heading is never shown to the public. -->
-<section class="inner-sec" id="advisors" hidden style="padding-top:36px;">
+<section class="inner-sec" id="advisors" hidden style="padding-top:36px;" aria-labelledby="advisors-heading">
 <div class="container">
 <div class="inner-sec-header">
 <div class="sec-label-inline" style="justify-content:center;">Advisor Panel</div>
-<h2 class="sec-h2">Advisors, <span>Patrons &amp; Moderators</span></h2>
+<h2 class="sec-h2" id="advisors-heading">Advisors, <span>Patrons &amp; Moderators</span></h2>
 <div class="rule" style="margin:14px auto 0;"></div>
 <p style="max-width:680px;margin:16px auto 0;color:var(--bodyColor);line-height:1.7;">Advisors, chief patrons, the Vice-Chancellor and moderators who guide IURS.</p>
 </div>
@@ -1211,11 +1210,11 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 </div>
 </section>
 <!-- GENERAL MEMBERS — filled from /api/public/committee (tier "member"). -->
-<section class="inner-sec" id="members" hidden style="background:var(--shadeColor);padding-top:36px;">
+<section class="inner-sec" id="members" hidden style="background:var(--shadeColor);padding-top:36px;" aria-labelledby="members-heading">
 <div class="container">
 <div class="inner-sec-header">
 <div class="sec-label-inline" style="justify-content:center;">General Members</div>
-<h2 class="sec-h2">General <span>Members</span></h2>
+<h2 class="sec-h2" id="members-heading">General <span>Members</span></h2>
 <div class="rule" style="margin:14px auto 0;"></div>
 <p style="max-width:680px;margin:16px auto 0;color:var(--bodyColor);line-height:1.7;">Registered
 general members of the society for the current term — <strong id="exec-members-count">0</strong> in total.</p>
