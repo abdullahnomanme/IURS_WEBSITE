@@ -382,14 +382,22 @@
 
       var wrap = document.getElementById('committee-switch');
       var sel = document.getElementById('committee-select');
-      if (!wrap || !sel || all.length < 2) return;
+      if (!wrap || !sel) return;
+      /* Always populate the selector—even when only one term exists—so it never
+         renders as an empty box. When archives exist, all terms remain selectable. */
       sel.innerHTML = all.map(function (s, i) {
-        return '<option value="' + i + '">' + esc(s.label) + (s.isCurrent ? ' — current' : '') + '</option>';
+        return '<option value="' + i + '">' + esc(s.label || ('Committee term ' + (i + 1))) + (s.isCurrent ? ' — current' : '') + '</option>';
       }).join('');
+      sel.value = '0';
+      sel.disabled = all.length < 2;
       wrap.hidden = false;
+      var badge = document.getElementById('committee-badge');
+      if (badge) badge.textContent = all[0].isCurrent ? 'Current committee' : (all[0].label || 'Selected committee');
       sel.onchange = function () {
         var selectedView = viewFromHash();
-        paintCommittee(all[+sel.value] || all[0]);
+        var selected = all[Number(sel.value)] || all[0];
+        paintCommittee(selected);
+        if (badge) badge.textContent = selected.isCurrent ? 'Current committee' : (selected.label || 'Selected committee');
         setPeopleView(selectedView);
       };
     }).catch(function (e) { console.warn('[IURS] committee kept static:', e.message); });
