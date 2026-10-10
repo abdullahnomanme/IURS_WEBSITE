@@ -74,7 +74,8 @@ check('event detail page loads event data from the public API and handles missin
 check('live event cards link to the matching internal detail page', liveJs.includes('event-details.html?id=') && liveJs.includes('View Details'));
 check('admin event register offers a public preview and event editing fields', adminPage.includes('Preview Public Page') && adminPage.includes('id="eventFile"') && adminPage.includes('id="ex"') && adminPage.includes('id="er"'));
 check('event admin API supports create, update, delete and public listing', worker.includes("path==='/api/public/events'") && worker.includes("path==='/api/admin/events'&&m==='POST'") && worker.includes("path.startsWith('/api/admin/events/')&&m==='PUT'") && worker.includes("path.startsWith('/api/admin/events/')&&m==='DELETE'"));
-check('committee portraits and event cards receive reference-inspired responsive styles', css.includes('#roster .exec-roster-grid .exec-photo') && css.includes('.events-grid[data-live-events]') && css.includes('iursLogoSpin') && css.includes('prefers-reduced-motion:reduce'));
+const finalUi = readFileSync(path.join(root,'public/assets','iurs-final-ui.css'),'utf8');
+check('committee portraits and event cards receive reference-inspired responsive styles', finalUi.includes('#roster .exec-roster-grid .exec-photo') && finalUi.includes('.events-grid[data-live-events]') && finalUi.includes('iursLogoSpin') && finalUi.includes('prefers-reduced-motion:reduce'));
 const sitemap = readFileSync(path.join(root,'sitemap.xml'),'utf8');
 const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>m[1]);
 check('sitemap contains all 12 public pages', pages.length === urls.length && pages.every(([,url])=>urls.includes(url)));
