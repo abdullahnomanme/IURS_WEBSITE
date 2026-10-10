@@ -808,3 +808,50 @@ section[class*="cta"] p {
 }
 .stats-bar .stat-box::before,
 .stats-bar .stat-box::after { pointer-events: none; }
+
+
+/* IURS site-wide modernization — October 2026 */
+:root {
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Manrope', 'Inter', system-ui, sans-serif;
+  --iurs-shadow-sm: 0 4px 18px rgba(16, 20, 28, .055);
+  --iurs-shadow-lg: 0 18px 48px rgba(16, 20, 28, .12);
+  --iurs-ring: 0 0 0 4px rgba(164, 17, 47, .13);
+}
+body { font-family: var(--font-body); text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+h1,h2,h3,h4,h5,h6,.logo-words .org-name,.hero-tagline { font-family: var(--font-heading); }
+a { transition: color .2s ease, background-color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid rgba(164,17,47,.6); outline-offset: 3px;
+}
+button, .btn-primary-red, .btn-outline-white, .btn-apply, .btn-primary, .btn-secondary {
+  transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease;
+}
+.btn-primary-red:hover, .btn-apply:hover, .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 9px 22px rgba(164,17,47,.2); }
+.pub-card, .research-card, .event-card, .news-card, .exec-card, .focus-card, .hero-panel-card, .publication-feature {
+  border: 1px solid rgba(16,20,28,.07);
+  box-shadow: var(--iurs-shadow-sm);
+  transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease;
+}
+.pub-card:hover, .research-card:hover, .event-card:hover, .news-card:hover, .exec-card:hover, .focus-card:hover {
+  transform: translateY(-4px); box-shadow: var(--iurs-shadow-lg); border-color: rgba(164,17,47,.18);
+}
+.navbar { backdrop-filter: saturate(160%) blur(12px); -webkit-backdrop-filter: saturate(160%) blur(12px); }
+.nav-menu > li > a.active { font-weight: 700; }
+.page-banner { overflow: hidden; }
+.page-banner-inner { position: relative; }
+.page-banner h1 { text-wrap: balance; }
+.sec-h2, .hero-tagline { text-wrap: balance; }
+p { text-wrap: pretty; }
+input, select, textarea { border-radius: 9px; }
+img { height: auto; }
+::selection { color: #fff; background: #a4112f; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+@media (max-width: 700px) {
+  .container { width: 100%; }
+  .hero-btns { flex-wrap: wrap; }
+  .hero-btns a { min-height: 44px; }
+  input, select, textarea, button { font-size: max(16px, 1em); }
+}
