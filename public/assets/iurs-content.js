@@ -313,10 +313,8 @@
         advGrid.innerHTML = '<div class="committee-empty" role="status">Advisor and moderator profiles have not been added for this committee term yet.</div>';
       }
     }
-    /* Keep the anchor target visible even when there are no records. Hiding an
-       anchor target makes the browser land on the previous section, which looked
-       as though Advisor Panel was incorrectly showing the Executive Committee. */
-    if (advSec) advSec.hidden = location.hash !== '#advisors' && !document.querySelector('[data-people-view].active[data-people-view="advisors"]');
+    /* Visibility is controlled centrally by setPeopleView(), not by data rendering.
+       This keeps the selected category stable when a different committee term loads. */
 
     var memBody = document.getElementById('exec-members');
     var memSec = document.getElementById('members');
@@ -328,7 +326,6 @@
           esc(r.designation || 'General Member') + '</td></tr>';
       }).join('') : '<tr><td colspan="4" class="committee-empty-cell">No general members have been added to this committee term yet.</td></tr>';
     }
-    if (memSec) memSec.hidden = location.hash !== '#members' && !document.querySelector('[data-people-view].active[data-people-view="members"]');
     var memCount = document.getElementById('exec-members-count');
     if (memCount) memCount.textContent = String(members.length);
 
@@ -349,49 +346,52 @@
   function bindCommittee() {
     if (!document.getElementById('exec-leadership')) return;
 
-    /* Committee, advisors and general members are separate views. Advisors do not
-       appear in the default committee view; their own tab opens only that panel. */
+    /* The top People dropdown is the only category navigation. Its URL hashes
+       select the matching view, including clicks made while already on this page. */
     var committeeSections = [document.getElementById('executive'), document.getElementById('roster')];
     var advisorSection = document.getElementById('advisors');
     var memberSection = document.getElementById('members');
+
+    function viewFromHash() {
+      if (location.hash === '#advisors') return 'advisors';
+      if (location.hash === '#members') return 'members';
+      return 'committee';
+    }
     function setPeopleView(view) {
       committeeSections.forEach(function (section) { if (section) section.hidden = view !== 'committee'; });
       if (advisorSection) advisorSection.hidden = view !== 'advisors';
       if (memberSection) memberSection.hidden = view !== 'members';
-      document.querySelectorAll('[data-people-view]').forEach(function (tab) {
-        var active = tab.getAttribute('data-people-view') === view;
-        tab.classList.toggle('active', active);
-        if (active) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
-      });
+      var title = document.querySelector('.page-banner h1');
+      if (title) title.textContent = view === 'advisors' ? 'Advisors' : view === 'members' ? 'General Members' : 'Executive Committee';
+      var description = document.getElementById('committee-lead');
+      if (description) {
+        if (view === 'advisors') description.textContent = 'Meet the advisors, patrons and moderators who guide IURS.';
+        else if (view === 'members') description.textContent = 'Explore the general members of the Islamic University Research Society.';
+        else description.textContent = 'Meet the leadership and executive committee of IURS.';
+      }
     }
-    document.querySelectorAll('[data-people-view]').forEach(function (tab) {
-      tab.addEventListener('click', function (event) {
-        event.preventDefault();
-        var view = tab.getAttribute('data-people-view') || 'committee';
-        setPeopleView(view);
-        if (history && history.replaceState) history.replaceState(null, '', '#' + (view === 'committee' ? 'executive' : view));
-      });
-    });
-    setPeopleView(location.hash === '#advisors' ? 'advisors' : location.hash === '#members' ? 'members' : 'committee');
+    setPeopleView(viewFromHash());
+    window.addEventListener('hashchange', function () { setPeopleView(viewFromHash()); });
 
     getJSON('/api/public/committee').then(function (data) {
       var all = [];
       if (data && data.current) all.push(data.current);
       (data && data.archive ? data.archive : []).forEach(function (s) { all.push(s); });
-      if (!all.length) return; // keep the static content
-
+      if (!all.length) return;
       paintCommittee(all[0]);
 
       var wrap = document.getElementById('committee-switch');
       var sel = document.getElementById('committee-select');
-      if (!wrap || !sel) return;
-      if (all.length < 2) return; // only one term on record — no need for a switcher
-
+      if (!wrap || !sel || all.length < 2) return;
       sel.innerHTML = all.map(function (s, i) {
         return '<option value="' + i + '">' + esc(s.label) + (s.isCurrent ? ' — current' : '') + '</option>';
       }).join('');
       wrap.hidden = false;
-      sel.onchange = function () { paintCommittee(all[+sel.value] || all[0]); };
+      sel.onchange = function () {
+        var selectedView = viewFromHash();
+        paintCommittee(all[+sel.value] || all[0]);
+        setPeopleView(selectedView);
+      };
     }).catch(function (e) { console.warn('[IURS] committee kept static:', e.message); });
   }
 
