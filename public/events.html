@@ -1068,7 +1068,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <span><i class="fas fa-map-marker-alt"></i> Islamic University, Kushtia</span>
 </div>
 <p style="font-size:13px;color:#888;line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">Keynote by Professor Mohammed Asaduzzaman, PhD, Dept. of Public Administration. Chair: Taqy Wasif (President). Host: Ashfia Kaniz Fatema.</p>
-<a class="event-link" href="#">View Details <i class="fas fa-arrow-right"></i></a>
+<a class="event-link" href="#event-details" data-event-details>View Details <i class="fas fa-arrow-right"></i></a>
 </div>
 </div>
 <div class="event-card reveal reveal-delay-1">
@@ -1088,7 +1088,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <span><i class="fas fa-map-marker-alt"></i> Gagan Harkara Gallery, Rabindra-Nazrul Arts Building</span>
 </div>
 <p style="font-size:13px;color:#888;line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">Panel seminar with faculty from Bangla, Arabic, Pharmacy, Chemical Engineering, and Social Welfare departments. Sponsored by ResearchMate &amp; Manob Sheba.</p>
-<a class="event-link" href="#">View Details <i class="fas fa-arrow-right"></i></a>
+<a class="event-link" href="#event-details" data-event-details>View Details <i class="fas fa-arrow-right"></i></a>
 </div>
 </div>
 <div class="event-card reveal reveal-delay-2">
@@ -1108,7 +1108,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <span><i class="fas fa-map-marker-alt"></i> Online</span>
 </div>
 <p style="font-size:13px;color:#888;line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">Speaker: Mohammad Nazmus Sakib, PhD Candidate, Dept. of Economics, Daugavpils University, Latvia.</p>
-<a class="event-link" href="#">View Details <i class="fas fa-arrow-right"></i></a>
+<a class="event-link" href="#event-details" data-event-details>View Details <i class="fas fa-arrow-right"></i></a>
 </div>
 </div>
 <div class="event-card reveal reveal-delay-3">
@@ -1128,7 +1128,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <span><i class="fas fa-map-marker-alt"></i> Online</span>
 </div>
 <p style="font-size:13px;color:#888;line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">Trainer: S. M. Shahriar Shadhin, Biomedical Engineering, Branding &amp; Promotion Secretary, IURS. Covers Word, PowerPoint, Excel &amp; productivity skills.</p>
-<a class="event-link" href="#">View Details <i class="fas fa-arrow-right"></i></a>
+<a class="event-link" href="#event-details" data-event-details>View Details <i class="fas fa-arrow-right"></i></a>
 </div>
 </div>
 <div class="event-card reveal reveal-delay-4">
@@ -1148,7 +1148,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <span><i class="fas fa-map-marker-alt"></i> Islamic University, Kushtia</span>
 </div>
 <p style="font-size:13px;color:#888;line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">Open for students who want to explore research, improve writing &amp; presentation skills, and join research workshops with mentorship support.</p>
-<a class="event-link" href="#">View Details <i class="fas fa-arrow-right"></i></a>
+<a class="event-link" href="#event-details" data-event-details>View Details <i class="fas fa-arrow-right"></i></a>
 </div>
 </div>
 </div>
@@ -1379,5 +1379,81 @@ function subscribeNewsletter() {
 </script>
 <script src="assets/iurs-live.js"></script>
 <script src="assets/iurs-content.js" defer></script>
+
+<!-- Event details dialog: populated from the selected event card -->
+<div class="iurs-event-modal" id="iurs-event-modal" aria-hidden="true">
+  <div class="iurs-event-modal-backdrop" data-close-event></div>
+  <section class="iurs-event-dialog" role="dialog" aria-modal="true" aria-labelledby="iurs-event-title">
+    <button class="iurs-event-close" type="button" aria-label="Close event details" data-close-event><i class="fas fa-times"></i></button>
+    <div class="iurs-event-poster" id="iurs-event-poster"></div>
+    <div class="iurs-event-content">
+      <div class="event-cat-tag" id="iurs-event-category"></div>
+      <h2 id="iurs-event-title"></h2>
+      <div class="iurs-event-meta" id="iurs-event-meta"></div>
+      <div class="iurs-event-description" id="iurs-event-description"></div>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('iurs-event-modal');
+  if (!modal) return;
+  var poster = document.getElementById('iurs-event-poster');
+  var title = document.getElementById('iurs-event-title');
+  var category = document.getElementById('iurs-event-category');
+  var meta = document.getElementById('iurs-event-meta');
+  var description = document.getElementById('iurs-event-description');
+  var lastTrigger = null;
+  function closeModal() {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('iurs-event-modal-open');
+    if (lastTrigger) lastTrigger.focus();
+  }
+  document.addEventListener('click', function (event) {
+    var trigger = event.target.closest('[data-event-details]');
+    if (trigger) {
+      event.preventDefault();
+      var card = trigger.closest('.event-card');
+      if (!card) return;
+      lastTrigger = trigger;
+      var cardTitle = card.querySelector('.event-title');
+      var cardCategory = card.querySelector('.event-cat-tag');
+      var cardThumb = card.querySelector('.event-thumb');
+      var cardInfo = card.querySelectorAll('.event-info span');
+      var cardDescription = card.querySelector('.event-body p');
+      var fee = card.querySelector('.event-free-tag');
+      title.textContent = cardTitle ? cardTitle.textContent.trim() : 'IURS Event';
+      category.textContent = cardCategory ? cardCategory.textContent.trim() : 'Event';
+      poster.style.backgroundImage = cardThumb ? (cardThumb.style.backgroundImage || 'none') : 'none';
+      poster.hidden = !cardThumb || !cardThumb.style.backgroundImage;
+      meta.innerHTML = '';
+      Array.prototype.forEach.call(cardInfo, function (item) {
+        var row = document.createElement('div');
+        row.className = 'iurs-event-meta-row';
+        row.textContent = item.textContent.trim();
+        meta.appendChild(row);
+      });
+      if (fee) {
+        var price = document.createElement('div');
+        price.className = 'iurs-event-meta-row iurs-event-price';
+        price.textContent = 'Registration: ' + fee.textContent.trim();
+        meta.appendChild(price);
+      }
+      description.textContent = cardDescription ? cardDescription.textContent.trim() : '';
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('iurs-event-modal-open');
+      modal.querySelector('.iurs-event-close').focus();
+      return;
+    }
+    if (event.target.closest('[data-close-event]')) closeModal();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+  });
+})();
+</script>
+
 </body>
 </html>
