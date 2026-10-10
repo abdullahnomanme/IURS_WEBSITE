@@ -1499,3 +1499,34 @@ a, button, [role="button"] {
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
 }
+
+
+/* IURS DESIGN SYSTEM v13 — modern editorial typography + interaction polish */
+:root {
+  --font-heading: 'Manrope', 'Inter', system-ui, -apple-system, sans-serif !important;
+  --font-body: 'Inter', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif !important;
+  --ui-border: #e7eaf0;
+  --ui-shadow: 0 12px 34px rgba(16,24,40,.055);
+  --ui-shadow-hover: 0 20px 46px rgba(16,24,40,.11);
+}
+body { font-family: var(--font-body) !important; letter-spacing: -.006em; }
+h1,h2,h3,h4,h5,h6,.sec-h2,.hero-tagline,.page-banner h1 {
+  font-family: var(--font-heading) !important;
+  letter-spacing: -.035em !important;
+}
+p,li { text-wrap: pretty; }
+a,button,input,select,textarea { transition: color .18s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible {
+  outline: 3px solid rgba(164,17,47,.42) !important;
+  outline-offset: 3px !important;
+}
+.pub-card,.research-card,.event-card,.news-card,.exec-card,.focus-card,.gallery-card,.stat-box {
+  border-color: var(--ui-border);
+}
+.pub-card:hover,.research-card:hover,.event-card:hover,.news-card:hover,.exec-card:hover {
+  box-shadow: var(--ui-shadow-hover);
+}
+button:disabled,[aria-disabled="true"] { opacity:.55; cursor:not-allowed; transform:none !important; }
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
+}
