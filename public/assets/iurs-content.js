@@ -273,8 +273,12 @@
   function paintCommittee(session) {
     var grid = document.getElementById('exec-leadership');
     var body = document.getElementById('exec-roster');
-    var lead = (session.leadership || []);
-    var roster = (session.roster || []);
+    var allLeadership = (session.leadership || []);
+    /* Only President and General Secretary get the large featured cards. Other
+       office-bearers stay in the same committee roster, avoiding duplicate sections. */
+    var featured = allLeadership.filter(function (r) { return /president|general secretary/i.test(String(r.designation || '')); });
+    var lead = featured.slice(0, 2);
+    var roster = allLeadership.filter(function (r) { return lead.indexOf(r) === -1; }).concat(session.roster || []);
     if (grid) {
       grid.innerHTML = '';
       if (lead.length) {
@@ -312,7 +316,7 @@
     /* Keep the anchor target visible even when there are no records. Hiding an
        anchor target makes the browser land on the previous section, which looked
        as though Advisor Panel was incorrectly showing the Executive Committee. */
-    if (advSec) advSec.hidden = false;
+    if (advSec) advSec.hidden = location.hash !== '#advisors' && !document.querySelector('[data-people-view].active[data-people-view="advisors"]');
 
     var memBody = document.getElementById('exec-members');
     var memSec = document.getElementById('members');
@@ -324,7 +328,7 @@
           esc(r.designation || 'General Member') + '</td></tr>';
       }).join('') : '<tr><td colspan="4" class="committee-empty-cell">No general members have been added to this committee term yet.</td></tr>';
     }
-    if (memSec) memSec.hidden = false;
+    if (memSec) memSec.hidden = location.hash !== '#members' && !document.querySelector('[data-people-view].active[data-people-view="members"]');
     var memCount = document.getElementById('exec-members-count');
     if (memCount) memCount.textContent = String(members.length);
 
@@ -344,6 +348,31 @@
 
   function bindCommittee() {
     if (!document.getElementById('exec-leadership')) return;
+
+    /* Committee, advisors and general members are separate views. Advisors do not
+       appear in the default committee view; their own tab opens only that panel. */
+    var committeeSections = [document.getElementById('executive'), document.getElementById('roster')];
+    var advisorSection = document.getElementById('advisors');
+    var memberSection = document.getElementById('members');
+    function setPeopleView(view) {
+      committeeSections.forEach(function (section) { if (section) section.hidden = view !== 'committee'; });
+      if (advisorSection) advisorSection.hidden = view !== 'advisors';
+      if (memberSection) memberSection.hidden = view !== 'members';
+      document.querySelectorAll('[data-people-view]').forEach(function (tab) {
+        var active = tab.getAttribute('data-people-view') === view;
+        tab.classList.toggle('active', active);
+        if (active) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
+      });
+    }
+    document.querySelectorAll('[data-people-view]').forEach(function (tab) {
+      tab.addEventListener('click', function (event) {
+        event.preventDefault();
+        var view = tab.getAttribute('data-people-view') || 'committee';
+        setPeopleView(view);
+        if (history && history.replaceState) history.replaceState(null, '', '#' + (view === 'committee' ? 'executive' : view));
+      });
+    });
+    setPeopleView(location.hash === '#advisors' ? 'advisors' : location.hash === '#members' ? 'members' : 'committee');
 
     getJSON('/api/public/committee').then(function (data) {
       var all = [];
