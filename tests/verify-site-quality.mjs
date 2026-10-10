@@ -33,6 +33,10 @@ for (const [file,url] of pages) {
   check(file + ' has social-sharing metadata', html.includes('property="og:title"') && html.includes('name="twitter:card"'));
   check(file + ' retains a meta description', /<meta\b(?=[^>]*\bname=["']description["'])[^>]*>/i.test(html));
 }
+const homepage = readFileSync(path.join(root,'public','index.html'),'utf8');
+check('homepage has complete closing document markup', /<\\/body>\\s*<\\/html>\\s*$/i.test(homepage));
+check('homepage loads the shared CMS content binder', /<script\\b[^>]*\\bsrc=["']assets\\/iurs-content\\.js["']/i.test(homepage));
+
 console.log('\n\x1b[1mPrivate portal indexing safeguards\x1b[0m');
 for (const file of ['admin.html','dashboard.html','login.html','setup.html']) {
   const html = readFileSync(path.join(root,'public',file),'utf8');
