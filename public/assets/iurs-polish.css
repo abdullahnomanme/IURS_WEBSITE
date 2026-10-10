@@ -1598,3 +1598,32 @@ h1,h2,h3,h4,h5,h6,.sec-h2,.page-banner h1 { font-family: var(--font-heading) !im
     padding: 0 !important;
   }
 }
+
+
+/* MOBILE FIX — research CTA card and action buttons must stay inside the viewport. */
+.research-cta-card { min-width:0; }
+.research-cta-card > div { min-width:0; }
+.research-cta-card p,
+.research-cta-card h2,
+.research-cta-card a { overflow-wrap:anywhere; }
+.research-cta-actions { width:100%; }
+@media (max-width: 760px) {
+  .research-cta-card {
+    grid-template-columns:minmax(0,1fr) !important;
+    gap:22px !important;
+    padding:30px 22px !important;
+    border-radius:22px !important;
+  }
+  .research-cta-card > div { width:100%; min-width:0 !important; }
+  .research-cta-card h2 { font-size:clamp(25px,7vw,32px) !important; line-height:1.18 !important; }
+  .research-cta-card p { font-size:15px !important; line-height:1.65 !important; }
+  .research-cta-card > div:first-child > div { gap:9px !important; flex-wrap:wrap !important; }
+  .research-cta-card > div:first-child > div > span { display:none !important; }
+  .research-cta-card > div:first-child > div > a { max-width:100%; }
+  .research-cta-actions { min-width:0 !important; flex-direction:row !important; flex-wrap:wrap; gap:10px !important; }
+  .research-cta-actions a { flex:1 1 150px; min-width:0; white-space:normal; padding:13px 12px !important; }
+}
+@media (max-width: 380px) {
+  .research-cta-card { padding:25px 17px !important; }
+  .research-cta-actions a { flex-basis:100%; }
+}
