@@ -288,10 +288,9 @@
       }).join('');
     }
 
-    /* Advisor panel and general members are their own sections on the page. They
-       start hidden, because an "Advisory Panel" heading over an empty grid reads
-       as a broken page — they only appear once the committee has actually added
-       people with that tier from the dashboard. */
+    /* Advisor and general-member anchors stay visible even when empty, so their
+       navigation links never land on the preceding Executive Committee section.
+       The dashboard can populate these independent tiers without changing markup. */
     var advGrid = document.getElementById('exec-advisors');
     var advSec = document.getElementById('advisors');
     var advisors = (session.advisors || []);
