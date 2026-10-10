@@ -1001,3 +1001,121 @@
     '.iu-chat-form button[disabled]{opacity:.55;cursor:not-allowed}' +
     '.iu-chat .iu-vh{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}' +
     '@media(max-width:520px){.iu-chat{right:10px;left:10px;width:auto;bottom:78px;height:calc(100vh - 150px)}.iu-chat-btn{right:12px;bottom:12px}}';
+  var CHAT_SUGGESTIONS = ['How do I join IURS?', 'Who is on the executive committee?',
+    'What has IURS published?', 'Any upcoming events?', 'What training does IURS run?'];
+
+  function bindChat() {
+    // Public site only — never on the dashboard, login or setup pages.
+    if (/\/(admin|login|setup|dashboard)\.html$/.test(location.pathname)) return;
+    if (document.querySelector('.iu-chat-btn')) return;
+
+    var style = document.createElement('style');
+    style.textContent = CHAT_CSS;
+    document.head.appendChild(style);
+
+    var btn = document.createElement('button');
+    btn.className = 'iu-chat-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Ask about IURS');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = '<i class="fas fa-comment-dots"></i>';
+
+    var panel = document.createElement('section');
+    panel.className = 'iu-chat';
+    panel.setAttribute('aria-label', 'IURS assistant');
+    panel.innerHTML =
+      '<div class="iu-chat-head"><img alt="" src="assets/logo-iurs.webp">' +
+        '<div><b>Ask IURS</b><small>Answers from this website only</small></div>' +
+        '<button aria-label="Close" type="button">&times;</button></div>' +
+      '<div class="iu-chat-log" id="iu-chat-log" aria-live="polite"></div>' +
+      '<form class="iu-chat-form"><label class="iu-vh" for="iu-chat-input">Your question</label>' +
+        '<input autocomplete="off" id="iu-chat-input" maxlength="500" placeholder="Ask about IURS…">' +
+        '<button aria-label="Send" type="submit"><i class="fas fa-paper-plane"></i></button></form>';
+
+    document.body.appendChild(btn);
+    document.body.appendChild(panel);
+
+    var log = panel.querySelector('#iu-chat-log');
+    var form = panel.querySelector('form');
+    var input = panel.querySelector('input');
+    var send = form.querySelector('button');
+
+    function say(text, who) {
+      var p = document.createElement('p');
+      p.className = who;
+      p.textContent = text;
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+      return p;
+    }
+
+    function suggestions() {
+      var wrap = document.createElement('div');
+      wrap.className = 'iu-chat-sug';
+      CHAT_SUGGESTIONS.forEach(function (q) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = q;
+        b.onclick = function () { wrap.remove(); ask(q); };
+        wrap.appendChild(b);
+      });
+      log.appendChild(wrap);
+    }
+
+    var busy = false;
+    function ask(q) {
+      if (busy || !q) return;
+      busy = true;
+      send.disabled = true;
+      say(q, 'me');
+      input.value = '';
+      var thinking = say('…', 'bot');
+      fetch('/api/public/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ message: q })
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; });
+      }).then(function (d) {
+        thinking.textContent = d.reply || d.error ||
+          'I could not reach the IURS records just now. Please email iuresearchsociety@gmail.com.';
+      }).catch(function () {
+        thinking.textContent = 'I could not reach the IURS records just now. Please email iuresearchsociety@gmail.com.';
+      }).then(function () {
+        busy = false;
+        send.disabled = false;
+        log.scrollTop = log.scrollHeight;
+      });
+    }
+
+    var greeted = false;
+    function toggle(open) {
+      panel.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.innerHTML = open ? '<i class="fas fa-xmark"></i>' : '<i class="fas fa-comment-dots"></i>';
+      if (open && !greeted) {
+        greeted = true;
+        say('Assalamu alaikum. I can answer questions about IURS using the information on this ' +
+            'website — publications, events, training, notices, the executive committee, alumni and ' +
+            'how to join. If something is not on the site I will say so rather than guess.', 'bot');
+        suggestions();
+      }
+      if (open) setTimeout(function () { input.focus(); }, 120);
+    }
+
+    btn.onclick = function () { toggle(!panel.classList.contains('open')); };
+    panel.querySelector('.iu-chat-head button').onclick = function () { toggle(false); };
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && panel.classList.contains('open')) { toggle(false); btn.focus(); }
+    });
+    form.onsubmit = function (e) { e.preventDefault(); ask(input.value.trim()); };
+  }
+
+  function start() {
+    bindGallery(); bindTraining(); bindCommittee(); bindAlumni();
+    bindBlog(); bindPublications(); bindJoin(); bindChat();
+    bindNoticeBoard(); bindHomeNotices(); bindHomepage();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
