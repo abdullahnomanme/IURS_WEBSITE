@@ -57,11 +57,13 @@ check('mobile hero layout is covered', css.includes('max-width: 760px') && css.i
 check('reduced-motion preference remains supported', css.includes('prefers-reduced-motion: reduce'));
 const peoplePage = readFileSync(path.join(root,'public','executive-committee.html'),'utf8');
 const contentJs = readFileSync(path.join(root,'public/assets','iurs-content.js'),'utf8');
-check('Advisor Panel is a unique view that is hidden by default', /id="advisors"/.test(peoplePage) && /<section[^>]*id="advisors"[^>]*hidden/i.test(peoplePage) && /data-people-view="advisors"/.test(peoplePage) && /setPeopleView\(location\.hash === '#advisors'/.test(contentJs));
-check('General Members is a unique view that is hidden by default', /id="members"/.test(peoplePage) && /<section[^>]*id="members"[^>]*hidden/i.test(peoplePage) && /data-people-view="members"/.test(peoplePage) && /setPeopleView\(location\.hash === '#advisors'.*'#members'/.test(contentJs));
-check('empty advisor/member states are rendered instead of jumping to another section', contentJs.includes('committee-empty') && contentJs.includes('committee-empty-cell'));
+check('People dropdown routes Executive, General Members, Advisors and Alumni separately', /href="executive-committee\.html#executive">Executive Committee/.test(peoplePage) && /href="executive-committee\.html#members">General Members/.test(peoplePage) && /href="executive-committee\.html#advisors">Advisors/.test(peoplePage) && /href="alumni\.html">Alumni/.test(peoplePage));
+check('duplicate in-page People category menus are removed', !peoplePage.includes('people-jump-links') && !peoplePage.includes('data-people-view='));
+check('category routing follows URL hashes and supports same-page navigation', contentJs.includes("function viewFromHash()") && contentJs.includes("window.addEventListener('hashchange'") && contentJs.includes("location.hash === '#advisors'") && contentJs.includes("location.hash === '#members'"));
+check('empty advisor/member states are rendered without showing another category', contentJs.includes('committee-empty') && contentJs.includes('committee-empty-cell') && /id="advisors" hidden/.test(peoplePage) && /id="members" hidden/.test(peoplePage));
 check('full committee roster renders as profile cards, not a truncated table', /class="exec-grid exec-roster-grid"[^>]*id="exec-roster"/.test(peoplePage) && /body\.appendChild\(execCard\(r, i\)\)/.test(contentJs));
-check('people page has unified committee, advisor, and member views', ['#executive','#advisors','#members'].every(h=>peoplePage.includes('href="'+h+'"')) && !peoplePage.includes('href="#roster"') && /data-people-view="committee"/.test(peoplePage));
+check('President and General Secretary portraits preserve the full image', /#exec-leadership \.exec-photo img\{width:100%;height:100%;object-fit:contain;/.test(peoplePage));
+check('committee-term changes preserve the selected category and load archived sessions', contentJs.includes('data.archive') && contentJs.includes('sel.onchange = function ()') && contentJs.includes('setPeopleView(selectedView)'));
 const sitemap = readFileSync(path.join(root,'sitemap.xml'),'utf8');
 const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>m[1]);
 check('sitemap contains all 12 public pages', pages.length === urls.length && pages.every(([,url])=>urls.includes(url)));
