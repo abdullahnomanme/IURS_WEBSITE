@@ -603,13 +603,20 @@
   function bindHomepageCommittee() {
     var grid = document.getElementById('home-exec-grid');
     if (!grid) return;
+
+    /* Always hydrate the homepage from the same public API used by the
+       Executive Committee page. Do not leave hard-coded cards visible when the
+       current session is empty or the API returns no profiles. */
     getJSON('/api/public/committee').then(function (data) {
       var session = data && (data.current || (data.archive && data.archive[0]));
-      if (!session) return;
+      if (!session) {
+        grid.innerHTML = '<div class="committee-empty" role="status">The executive committee has not been published yet.</div>';
+        return;
+      }
+
       var leadership = Array.isArray(session.leadership) ? session.leadership : [];
       var roster = Array.isArray(session.roster) ? session.roster : [];
       var all = leadership.concat(roster);
-      if (!all.length) return;
       function priority(row) {
         var role = String(row.designation || '').trim().toLowerCase();
         if (role === 'president') return 0;
@@ -619,15 +626,23 @@
         return 4;
       }
       all.sort(function (a, b) { return priority(a) - priority(b); });
-      grid.innerHTML = '';
-      all.slice(0, 4).forEach(function (row, i) { grid.appendChild(execCard(row, i)); });
-      reveal(grid.querySelectorAll('.reveal:not(.visible)'));
+
+      /* Rebuild on every successful response so admin edits to names, roles,
+         departments, social links, and uploaded photos replace the HTML fallback. */
+      grid.replaceChildren();
+      if (!all.length) {
+        grid.innerHTML = '<div class="committee-empty" role="status">No executive profiles have been published for the current committee.</div>';
+      } else {
+        all.slice(0, 4).forEach(function (row, i) { grid.appendChild(execCard(row, i)); });
+        reveal(grid.querySelectorAll('.reveal:not(.visible)'));
+      }
+
       var heading = document.querySelector('#executive .sec-h2');
       if (heading && session.label) heading.innerHTML = 'Executive <span>Committee ' + esc(session.label) + '</span>';
       var description = document.querySelector('#executive .sec-header p');
       if (description && session.description) description.textContent = session.description;
     }).catch(function (e) {
-      console.warn('[IURS] homepage committee kept static:', e.message);
+      console.warn('[IURS] homepage committee could not sync from the public API:', e.message);
     });
   }
 
