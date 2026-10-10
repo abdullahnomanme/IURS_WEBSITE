@@ -297,22 +297,29 @@
     var advisors = (session.advisors || []);
     if (advGrid) {
       advGrid.innerHTML = '';
-      advisors.forEach(function (r, i) { advGrid.appendChild(execCard(r, i)); });
-      reveal(advGrid.querySelectorAll('.reveal:not(.visible)'));
+      if (advisors.length) {
+        advisors.forEach(function (r, i) { advGrid.appendChild(execCard(r, i)); });
+        reveal(advGrid.querySelectorAll('.reveal:not(.visible)'));
+      } else {
+        advGrid.innerHTML = '<div class="committee-empty" role="status">Advisor and moderator profiles have not been added for this committee term yet.</div>';
+      }
     }
-    if (advSec) advSec.hidden = !advisors.length;
+    /* Keep the anchor target visible even when there are no records. Hiding an
+       anchor target makes the browser land on the previous section, which looked
+       as though Advisor Panel was incorrectly showing the Executive Committee. */
+    if (advSec) advSec.hidden = false;
 
     var memBody = document.getElementById('exec-members');
     var memSec = document.getElementById('members');
     var members = (session.members || []);
     if (memBody) {
-      memBody.innerHTML = members.map(function (r, i) {
+      memBody.innerHTML = members.length ? members.map(function (r, i) {
         return '<tr><td>' + esc(r.sl_no != null ? r.sl_no : i + 1) + '</td><td>' +
           esc(r.name || '') + '</td><td>' + esc(r.department || '') + '</td><td>' +
           esc(r.designation || 'General Member') + '</td></tr>';
-      }).join('');
+      }).join('') : '<tr><td colspan="4" class="committee-empty-cell">No general members have been added to this committee term yet.</td></tr>';
     }
-    if (memSec) memSec.hidden = !members.length;
+    if (memSec) memSec.hidden = false;
     var memCount = document.getElementById('exec-members-count');
     if (memCount) memCount.textContent = String(members.length);
 
