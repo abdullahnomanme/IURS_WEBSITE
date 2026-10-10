@@ -62,8 +62,10 @@ check('duplicate in-page People category menus are removed', !peoplePage.include
 check('category routing follows URL hashes and supports same-page navigation', contentJs.includes("function viewFromHash()") && contentJs.includes("window.addEventListener('hashchange'") && contentJs.includes("location.hash === '#advisors'") && contentJs.includes("location.hash === '#members'"));
 check('empty advisor/member states are rendered without showing another category', contentJs.includes('committee-empty') && contentJs.includes('committee-empty-cell') && /id="advisors" hidden/.test(peoplePage) && /id="members" hidden/.test(peoplePage));
 check('full committee roster renders as profile cards, not a truncated table', /class="exec-grid exec-roster-grid"[^>]*id="exec-roster"/.test(peoplePage) && /body\.appendChild\(execCard\(r, i\)\)/.test(contentJs));
-check('President and General Secretary portraits preserve the full image', /#exec-leadership \.exec-photo img\{width:100%;height:100%;object-fit:contain;/.test(peoplePage));
-check('committee-term changes preserve the selected category and load archived sessions', contentJs.includes('data.archive') && contentJs.includes('sel.onchange = function ()') && contentJs.includes('setPeopleView(selectedView)'));
+check('President and General Secretary use circular, full-image portrait frames', /#exec-leadership \.exec-photo\{width:112px;height:112px;aspect-ratio:1\/1;border-radius:50%/.test(peoplePage) && /#exec-leadership \.exec-photo img\{width:100%;height:100%;object-fit:contain;/.test(peoplePage));
+check('committee-term selector always receives an option and supports available archives', contentJs.includes('sel.innerHTML = all.map') && contentJs.includes('sel.disabled = all.length < 2') && contentJs.includes('data.archive') && contentJs.includes('setPeopleView(selectedView)'));
+const homePage = readFileSync(path.join(root,'public','index.html'),'utf8');
+check('View All Community Members links directly to the full committee roster', /href="executive-committee\.html#roster"><i class="fas fa-users"><\/i> View All Community Members/.test(homePage));
 const sitemap = readFileSync(path.join(root,'sitemap.xml'),'utf8');
 const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>m[1]);
 check('sitemap contains all 12 public pages', pages.length === urls.length && pages.every(([,url])=>urls.includes(url)));
