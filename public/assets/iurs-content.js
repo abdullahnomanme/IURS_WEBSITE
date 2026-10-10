@@ -599,6 +599,38 @@
     publications: '#publications', committee: '#executive'
   };
 
+  /* Homepage executive cards use the same public committee API as the Executive Committee page. */
+  function bindHomepageCommittee() {
+    var grid = document.getElementById('home-exec-grid');
+    if (!grid) return;
+    getJSON('/api/public/committee').then(function (data) {
+      var session = data && (data.current || (data.archive && data.archive[0]));
+      if (!session) return;
+      var leadership = Array.isArray(session.leadership) ? session.leadership : [];
+      var roster = Array.isArray(session.roster) ? session.roster : [];
+      var all = leadership.concat(roster);
+      if (!all.length) return;
+      function priority(row) {
+        var role = String(row.designation || '').trim().toLowerCase();
+        if (role === 'president') return 0;
+        if (role === 'general secretary' || role === 'secretary general') return 1;
+        if (/vice.?president/.test(role)) return 2;
+        if (role === 'treasurer') return 3;
+        return 4;
+      }
+      all.sort(function (a, b) { return priority(a) - priority(b); });
+      grid.innerHTML = '';
+      all.slice(0, 4).forEach(function (row, i) { grid.appendChild(execCard(row, i)); });
+      reveal(grid.querySelectorAll('.reveal:not(.visible)'));
+      var heading = document.querySelector('#executive .sec-h2');
+      if (heading && session.label) heading.innerHTML = 'Executive <span>Committee ' + esc(session.label) + '</span>';
+      var description = document.querySelector('#executive .sec-header p');
+      if (description && session.description) description.textContent = session.description;
+    }).catch(function (e) {
+      console.warn('[IURS] homepage committee kept static:', e.message);
+    });
+  }
+
   function bindHomepage() {
     if (!document.getElementById('home')) return;
     getJSON('/api/public/homepage').then(function (hp) {
@@ -1182,7 +1214,7 @@
   function start() {
     bindGallery(); bindTraining(); bindCommittee(); bindAlumni();
     bindBlog(); bindPublications(); bindJoin(); bindChat();
-    bindNoticeBoard(); bindHomeNotices(); bindHomepage();
+    bindNoticeBoard(); bindHomeNotices(); bindHomepage(); bindHomepageCommittee();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
