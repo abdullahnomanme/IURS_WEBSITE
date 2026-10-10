@@ -1012,3 +1012,27 @@ table td { color: #273449; }
   opacity: 1 !important;
   visibility: visible !important;
 }
+
+
+/* FINAL FIX: IURS in Action card captions must contrast with the pale section */
+#voices .testi-card .testi-name,
+#voices .testi-card .testi-name *,
+#voices .testi-card .testi-role,
+#voices .testi-card .testi-role * {
+  color: #172033 !important;
+  -webkit-text-fill-color: #172033 !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+#voices .testi-card .testi-role {
+  color: #566174 !important;
+  -webkit-text-fill-color: #566174 !important;
+}
+#voices .testi-card {
+  background: #ffffff !important;
+  color: #172033 !important;
+}
+#voices .testi-card > div:last-child {
+  background: #ffffff !important;
+}
