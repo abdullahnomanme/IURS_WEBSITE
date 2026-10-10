@@ -1568,3 +1568,33 @@ h1,h2,h3,h4,h5,h6,.sec-h2,.page-banner h1 { font-family: var(--font-heading) !im
 @media(max-width:1050px){.exec-roster-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
 @media(max-width:760px){.exec-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.exec-roster-grid .exec-photo{width:100px;height:100px}.people-jump-links{gap:7px}.people-jump-links a{font-size:11px;padding:8px 10px}}
 @media(max-width:390px){.exec-roster-grid{grid-template-columns:1fr}.exec-roster-grid .exec-card{max-width:320px;width:100%;margin-inline:auto}}
+
+
+/* HOMEPAGE HERO VERTICAL SPACE FIX — show hero stats/countdown sooner on first load */
+@media (min-width: 1025px) {
+  .hero {
+    min-height: auto !important;
+    padding: 24px 0 38px !important;
+  }
+  .hero-inner {
+    padding: 0 !important;
+  }
+  .hero-content-grid {
+    align-items: start !important;
+  }
+  .hero-left {
+    padding-top: 2px;
+  }
+  .hero-right-panel {
+    padding-top: 18px;
+  }
+}
+@media (min-width: 701px) and (max-width: 1024px) {
+  .hero {
+    min-height: auto !important;
+    padding: 30px 0 36px !important;
+  }
+  .hero-inner {
+    padding: 0 !important;
+  }
+}
