@@ -913,26 +913,32 @@ async function adminRoutes(req,env,user,path){if(!allowed(user))return json({err
  /* Recruitment window. GET returns the raw stored settings (the form needs the
     switch itself, not the computed "is it open right now"), plus the computed
     state so the panel can say what the public is currently seeing. */
- if(path==='/api/admin/recruitment'&&m==='GET'){const s=await getRecruitment(env);const today=todayStr();const campaigns=((await env.DB.prepare('SELECT * FROM recruitment_campaigns ORDER BY archived,sort_order,id DESC').all()).results||[]).map(c=>({...c,live:campaignIsOpen(c,today)}));return json({settings:s,liveNow:recruitmentIsOpen(s),today,campaigns})}
+ if(path==='/api/admin/recruitment'&&m==='GET'){const today=todayStr();const campaign=await getActiveCampaign(env,today);const s=campaign?campaignToSettings(campaign,today):await getRecruitment(env);const campaigns=((await env.DB.prepare('SELECT * FROM recruitment_campaigns ORDER BY archived,sort_order,id DESC').all()).results||[]).map(c=>({...c,live:campaignIsOpen(c,today)}));return json({settings:s,liveNow:campaign?campaignIsOpen(campaign,today):recruitmentIsOpen(s,today),today,campaigns})}
  if(path==='/api/admin/recruitment'&&m==='PUT'){const b=await body(req);
   const bool=v=>v===true||v===1||v==='1'||v==='true'||v==='on';
-  // A date box that is cleared must actually clear, so an invalid value becomes ''
-  // rather than being ignored — otherwise the old bound would silently stay in force.
-  const date=v=>{const s=cleanText(v,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:''};
+  const date=v=>{const s=cleanText(v,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:null};
   const s={...RECRUITMENT_DEFAULTS,
    open:bool(b.open),requirePayment:bool(b.requirePayment),
    title:cleanText(b.title,120)||RECRUITMENT_DEFAULTS.title,
    openMessage:cleanText(b.openMessage,600)||RECRUITMENT_DEFAULTS.openMessage,
    closedMessage:cleanText(b.closedMessage,600)||RECRUITMENT_DEFAULTS.closedMessage,
-   opensOn:date(b.opensOn),closesOn:date(b.closesOn),
+   opensOn:date(b.opensOn)||'',closesOn:date(b.closesOn)||'',
    fee:cleanText(b.fee,20),currency:cleanText(b.currency,10)||'BDT',
    feeNote:cleanText(b.feeNote,300),methods:cleanText(b.methods,300),
-   payTo:cleanText(b.payTo,120),payToLabel:cleanText(b.payToLabel,120)};
+   payTo:cleanText(b.payTo,120),payToLabel:cleanText(b.payToLabel,120),
+   imageUrl:cleanUrl(b.imageUrl)||''};
   if(s.opensOn&&s.closesOn&&s.closesOn<s.opensOn)return json({error:'The closing date cannot be before the opening date.'},400);
   if(s.requirePayment&&!s.fee)return json({error:'Set the membership fee, or switch off "payment required".'},400);
   if(s.requirePayment&&!s.payTo)return json({error:'Enter the number or account applicants should pay to.'},400);
+  const campaign=await getActiveCampaign(env,todayStr());
+  if(campaign){
+   await env.DB.prepare("UPDATE recruitment_campaigns SET title=?,open=?,opens_on=?,closes_on=?,fee=?,currency=?,fee_note=?,methods=?,pay_to=?,pay_to_label=?,require_payment=?,open_message=?,closed_message=?,image_url=?,updated_at=datetime('now') WHERE id=?")
+    .bind(s.title,s.open?1:0,s.opensOn||null,s.closesOn||null,s.fee||null,s.currency,s.feeNote||null,s.methods||null,s.payTo||null,s.payToLabel||null,s.requirePayment?1:0,s.openMessage,s.closedMessage,s.imageUrl||null,campaign.id).run();
+   const updated={...s,campaignId:campaign.id,code:campaign.code||''};
+   return json({ok:true,settings:updated,liveNow:recruitmentIsOpen(updated,todayStr())});
+  }
   await env.DB.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES(?,?,datetime('now')) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(RECRUITMENT_KEY,JSON.stringify(s)).run();
-  return json({ok:true,settings:s,liveNow:recruitmentIsOpen(s)})}
+  return json({ok:true,settings:s,liveNow:recruitmentIsOpen(s,todayStr())})}
 
  if(path==='/api/admin/applications'&&m==='GET'){const sp=new URL(req.url).searchParams;const st=sp.get('status')||'';const pay=sp.get('payment')||'';const q=cleanText(sp.get('q')||'',120);
   let sql='SELECT * FROM applications',where=[],bind=[];
