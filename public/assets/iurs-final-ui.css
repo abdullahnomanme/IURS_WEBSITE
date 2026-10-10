@@ -10,3 +10,41 @@ body #scroll-top-btn{bottom:88px!important;right:24px!important;z-index:999!impo
 @media(max-width:900px){body .hero-inner{padding-top:72px!important;padding-bottom:52px!important}body .hero-tagline{font-size:clamp(36px,8vw,58px)!important}body .hero-content-grid{grid-template-columns:1fr!important}body .hero-right-panel{display:none!important}}
 @media(max-width:640px){body .nav-inner{height:60px!important}body .mobile-nav{top:60px!important}body .hero{min-height:auto!important}body .hero-inner{padding:64px 16px 40px!important}body .hero-tagline{font-size:clamp(32px,9.5vw,46px)!important}body .hero-tagline .line3{font-size:14px!important;margin-top:11px!important}body .hero-desc{font-size:14px!important}body .hero-btns{flex-direction:column!important;gap:10px!important}body .hero-btns a{width:100%!important;justify-content:center!important}body .gallery-grid{grid-template-columns:1fr!important}body #scroll-top-btn{right:18px!important;bottom:82px!important}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+
+/* Reference-inspired committee, event and loading polish */
+#exec-leadership{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:28px!important;max-width:980px;margin-inline:auto}
+#exec-leadership .exec-card{padding:26px 22px!important;border:1px solid #ece8e2;background:#fff!important;border-radius:24px!important;box-shadow:0 16px 42px rgba(12,27,48,.09)!important}
+#exec-leadership .exec-photo{width:clamp(150px,17vw,210px)!important;height:clamp(150px,17vw,210px)!important;margin-bottom:20px!important;border-width:5px!important;outline-width:3px!important}
+#exec-leadership .exec-photo img{object-fit:contain!important}
+#roster .exec-roster-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:24px!important}
+#roster .exec-roster-grid .exec-card{height:100%;padding:18px!important;border-radius:22px!important;border:1px solid #ece8e2;background:#fff!important;box-shadow:0 12px 34px rgba(12,27,48,.075)!important;text-align:center}
+#roster .exec-roster-grid .exec-photo{width:100%!important;height:auto!important;aspect-ratio:4/3!important;max-height:none!important;border-radius:14px!important;overflow:hidden!important;background:#f2f3f5!important;margin:0 auto 16px!important;outline:0!important;border:0!important;box-shadow:none!important}
+#roster .exec-roster-grid .exec-photo img{width:100%!important;height:100%!important;object-fit:contain!important;object-position:center!important;background:#f2f3f5!important;border-radius:14px!important}
+#roster .exec-roster-grid .exec-photo .exec-photo-placeholder{width:100%;height:100%;border-radius:14px!important;display:grid;place-items:center;font-size:36px}
+#roster .exec-roster-grid .exec-name{font-size:18px;line-height:1.4;font-weight:800}
+#roster .exec-roster-grid .exec-role{margin-top:7px;color:var(--primaryColor);font-weight:800}
+#roster .exec-roster-grid .exec-dept{line-height:1.6}
+#preloader{backdrop-filter:blur(12px);background:rgba(250,249,246,.97)!important}
+#preloader .preloader-inner{gap:18px!important}
+#preloader .preloader-logo{width:92px!important;height:92px!important;border-radius:50%!important;background:#fff!important;border:1px solid #e8e5df!important;box-shadow:0 0 0 7px rgba(164,17,47,.06),0 14px 38px rgba(12,27,48,.08)!important;animation:iursLogoBreathe 1.6s ease-in-out infinite!important;position:relative}
+#preloader .preloader-logo:after{content:"";position:absolute;inset:-7px;border:2px solid transparent;border-top-color:var(--primaryColor);border-radius:50%;animation:iursLogoSpin 1.3s linear infinite}
+#preloader .preloader-logo img{width:54px;height:54px;object-fit:contain}
+#preloader .preloader-bar{width:118px;height:3px;border-radius:99px;overflow:hidden;background:#eadfe2;position:relative}
+#preloader .preloader-bar:after{content:"";position:absolute;inset:0;width:40%;border-radius:99px;background:var(--primaryColor);animation:iursLoadSweep 1.2s ease-in-out infinite}
+@keyframes iursLogoBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+@keyframes iursLogoSpin{to{transform:rotate(360deg)}}
+@keyframes iursLoadSweep{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}
+.events-grid[data-live-events]{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:26px!important}
+.events-grid[data-live-events] .event-card{border:1px solid #eeece7;border-radius:20px!important;overflow:hidden;box-shadow:0 14px 38px rgba(12,27,48,.08)!important;display:flex;flex-direction:column;min-width:0}
+.events-grid[data-live-events] .event-thumb{height:auto!important;aspect-ratio:16/10;display:block!important;flex-shrink:0}
+.events-grid[data-live-events] .event-card-image-link{display:block;text-decoration:none;transition:filter .2s,transform .35s}
+.events-grid[data-live-events] .event-card-image-link:hover{filter:saturate(1.08);transform:scale(1.01)}
+.events-grid[data-live-events] .event-date-stamp{position:absolute;left:16px;top:16px}
+.events-grid[data-live-events] .event-body{padding:22px;display:flex;flex:1;flex-direction:column}
+.events-grid[data-live-events] .event-title{font-size:20px!important;line-height:1.45!important;min-height:2.8em}
+.events-grid[data-live-events] .event-summary{font-size:13px;color:#667085;line-height:1.7;margin:12px 0 18px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.events-grid[data-live-events] .event-link{display:inline-flex;align-items:center;gap:9px;margin-top:auto;font-weight:800;text-decoration:none;color:var(--primaryColor)}
+.events-grid[data-live-events] .event-link:hover{gap:14px}
+@media(max-width:1000px){#roster .exec-roster-grid,.events-grid[data-live-events]{grid-template-columns:repeat(2,minmax(0,1fr))!important}#exec-leadership .exec-photo{width:160px!important;height:160px!important}}
+@media(max-width:600px){#exec-leadership{grid-template-columns:1fr!important;max-width:420px}#exec-leadership .exec-photo{width:170px!important;height:170px!important}#roster .exec-roster-grid,.events-grid[data-live-events]{grid-template-columns:1fr!important}#roster .exec-roster-grid .exec-photo{aspect-ratio:16/10!important}.events-grid[data-live-events] .event-body{padding:18px}}
+@media(prefers-reduced-motion:reduce){#preloader .preloader-logo,#preloader .preloader-logo:after,#preloader .preloader-bar:after{animation:none!important}}
