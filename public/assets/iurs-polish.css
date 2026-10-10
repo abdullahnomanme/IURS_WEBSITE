@@ -855,3 +855,95 @@ img { height: auto; }
   .hero-btns a { min-height: 44px; }
   input, select, textarea, button { font-size: max(16px, 1em); }
 }
+
+
+/* ============================================================
+   IURS design-system pass — consistent components across pages
+   ============================================================ */
+:root {
+  --iurs-surface: #ffffff;
+  --iurs-surface-muted: #f7f8fa;
+  --iurs-border: rgba(21, 31, 48, .11);
+  --iurs-text-muted: #5b6472;
+  --iurs-radius-sm: 10px;
+  --iurs-radius-md: 16px;
+  --iurs-radius-lg: 22px;
+}
+html { scroll-padding-top: 88px; }
+section[id], main[id], article[id] { scroll-margin-top: 88px; }
+.container { margin-inline: auto; }
+p, li { overflow-wrap: anywhere; }
+
+/* Shared content surfaces */
+.notice-card, .notice-item, .announcement-card, .contact-card,
+.form-card, .admin-card, .dashboard-card, .stat-card, .profile-card {
+  border-radius: var(--iurs-radius-md);
+}
+.notice-card, .notice-item, .announcement-card, .contact-card,
+.form-card, .admin-card, .dashboard-card, .stat-card, .profile-card {
+  border: 1px solid var(--iurs-border);
+}
+.notice-card, .notice-item, .announcement-card, .contact-card, .form-card,
+.profile-card {
+  box-shadow: var(--iurs-shadow-sm, 0 4px 18px rgba(16,20,28,.055));
+}
+
+/* Buttons stay clear and consistent without changing their colors */
+button, [role="button"], input[type="submit"], input[type="button"],
+input[type="reset"], .btn, .btn-red-outline, .btn-white-solid,
+.btn-outline-white-solid {
+  -webkit-tap-highlight-color: transparent;
+}
+button:not(:disabled), input[type="submit"]:not(:disabled),
+input[type="button"]:not(:disabled), [role="button"] {
+  cursor: pointer;
+}
+button:disabled, input:disabled, select:disabled, textarea:disabled {
+  cursor: not-allowed;
+  opacity: .65;
+}
+button:active:not(:disabled), .btn:active, .btn-primary-red:active,
+.btn-red-outline:active { transform: translateY(1px); }
+
+/* Form fields: visible focus, readable placeholders, useful validation */
+input::placeholder, textarea::placeholder { color: #737d8b; opacity: 1; }
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  border-color: #a4112f;
+  box-shadow: 0 0 0 3px rgba(164,17,47,.12);
+}
+input[aria-invalid="true"], select[aria-invalid="true"],
+textarea[aria-invalid="true"], .is-invalid {
+  border-color: #b42318 !important;
+}
+label { line-height: 1.45; }
+
+/* Tables and long data lists */
+table { max-width: 100%; border-collapse: collapse; }
+th { font-weight: 750; text-align: left; }
+td, th { padding: 12px 14px; border-bottom: 1px solid var(--iurs-border); }
+tbody tr:hover { background: rgba(164,17,47,.035); }
+pre, code { overflow-wrap: anywhere; }
+pre { max-width: 100%; overflow-x: auto; border-radius: var(--iurs-radius-sm); }
+
+/* Images and embedded media should never escape the content column */
+iframe, video, embed, object { max-width: 100%; }
+figure { margin-inline: 0; }
+figcaption { color: var(--iurs-text-muted); font-size: .875rem; line-height: 1.55; }
+
+/* Clear keyboard focus and honor touch-friendly targets */
+a, button, input, select, textarea, summary { touch-action: manipulation; }
+summary { cursor: pointer; }
+:target { scroll-margin-top: 88px; }
+
+@media (max-width: 700px) {
+  td, th { padding: 10px 9px; }
+  .container { padding-inline: 16px; }
+  .notice-card, .notice-item, .announcement-card, .contact-card,
+  .form-card, .admin-card, .dashboard-card, .stat-card, .profile-card {
+    border-radius: 13px;
+  }
+}
+@media (prefers-contrast: more) {
+  :root { --iurs-border: rgba(0,0,0,.35); }
+  .hero-desc, .footer p, .footer a { text-shadow: none; }
+}
