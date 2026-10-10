@@ -1744,3 +1744,111 @@ body.iurs-event-modal-open{overflow:hidden}
   #exec-leadership .exec-dept,
   #exec-advisors .exec-dept { font-size: 12px; }
 }
+
+
+/* Executive and advisor profiles: larger, editorial-style portraits inspired by DURS */
+#exec-leadership.exec-grid,
+#roster .exec-grid,
+#advisors .exec-grid,
+#members .exec-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 22px;
+}
+#exec-leadership .exec-card,
+#roster .exec-card,
+#advisors .exec-card,
+#members .exec-card {
+  min-width: 0;
+  padding: 14px 14px 22px;
+  border-radius: 18px;
+  text-align: center;
+  overflow: hidden;
+  background: #fff;
+}
+#exec-leadership .exec-photo,
+#roster .exec-photo,
+#advisors .exec-photo,
+#members .exec-photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 4.35;
+  padding: 0;
+  margin: 0 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: #f1f2f5;
+  box-shadow: none;
+  overflow: hidden;
+}
+#exec-leadership .exec-photo img,
+#roster .exec-photo img,
+#advisors .exec-photo img,
+#members .exec-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center top;
+  border-radius: 0;
+}
+#exec-leadership .exec-photo-placeholder,
+#roster .exec-photo-placeholder,
+#advisors .exec-photo-placeholder,
+#members .exec-photo-placeholder {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  font-size: clamp(30px, 3vw, 48px);
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(145deg, #a4112f, #760b22);
+}
+#exec-leadership .exec-name,
+#roster .exec-name,
+#advisors .exec-name,
+#members .exec-name {
+  font-size: clamp(15px, 1.2vw, 18px);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  margin-bottom: 8px;
+}
+#exec-leadership .exec-role,
+#roster .exec-role,
+#advisors .exec-role,
+#members .exec-role {
+  white-space: normal;
+  line-height: 1.45;
+  max-width: 100%;
+}
+#exec-leadership .exec-dept,
+#roster .exec-dept,
+#advisors .exec-dept,
+#members .exec-dept {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1000px) {
+  #exec-leadership.exec-grid,
+  #roster .exec-grid,
+  #advisors .exec-grid,
+  #members .exec-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+}
+@media (max-width: 700px) {
+  #exec-leadership.exec-grid,
+  #roster .exec-grid,
+  #advisors .exec-grid,
+  #members .exec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  #exec-leadership .exec-card,
+  #roster .exec-card,
+  #advisors .exec-card,
+  #members .exec-card { padding: 10px 10px 18px; border-radius: 15px; }
+  #exec-leadership .exec-photo,
+  #roster .exec-photo,
+  #advisors .exec-photo,
+  #members .exec-photo { margin-bottom: 13px; aspect-ratio: 4 / 4.6; }
+}
