@@ -275,10 +275,14 @@
     var body = document.getElementById('exec-roster');
     var lead = (session.leadership || []);
     var roster = (session.roster || []);
-    if (grid && lead.length) {
+    if (grid) {
       grid.innerHTML = '';
-      lead.forEach(function (r, i) { grid.appendChild(execCard(r, i)); });
-      reveal(grid.querySelectorAll('.reveal:not(.visible)'));
+      if (lead.length) {
+        lead.forEach(function (r, i) { grid.appendChild(execCard(r, i)); });
+        reveal(grid.querySelectorAll('.reveal:not(.visible)'));
+      } else {
+        grid.innerHTML = '<div class="committee-empty" role="status">No leadership profiles have been added for this committee term yet.</div>';
+      }
     }
     if (body) {
       body.innerHTML = '';
