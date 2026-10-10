@@ -693,3 +693,33 @@ footer a:hover { color: var(--skyColor,#f6c445); }
 @media (prefers-reduced-motion: reduce) {
   *,*::before,*::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Deployment/layout safety guard: keep the mobile drawer out of normal document flow.
+   The drawer must only appear when the hamburger explicitly opens it. */
+.mobile-nav {
+  display: none !important;
+  position: fixed !important;
+  inset: 58px 0 0 !important;
+  z-index: 999 !important;
+  overflow-y: auto !important;
+}
+.mobile-nav.open {
+  display: block !important;
+}
+@media (min-width: 1025px) {
+  .mobile-nav,
+  .mobile-nav.open {
+    display: none !important;
+  }
+}
+@media (max-width: 1024px) {
+  .mobile-nav {
+    top: 62px !important;
+  }
+}
+@media (max-width: 700px) {
+  .mobile-nav {
+    top: 58px !important;
+  }
+}
