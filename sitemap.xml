@@ -1,73 +1,73 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://iurs.org.bd/</loc>
+    <loc>https://iurs.org.bd/index.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://iurs.org.bd/about</loc>
+    <loc>https://iurs.org.bd/about.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://iurs.org.bd/alumni</loc>
+    <loc>https://iurs.org.bd/alumni.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://iurs.org.bd/blog</loc>
+    <loc>https://iurs.org.bd/blog.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://iurs.org.bd/contact</loc>
+    <loc>https://iurs.org.bd/contact.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://iurs.org.bd/events</loc>
+    <loc>https://iurs.org.bd/events.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://iurs.org.bd/executive-committee</loc>
+    <loc>https://iurs.org.bd/executive-committee.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://iurs.org.bd/gallery</loc>
+    <loc>https://iurs.org.bd/gallery.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://iurs.org.bd/join</loc>
+    <loc>https://iurs.org.bd/join.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://iurs.org.bd/notices</loc>
+    <loc>https://iurs.org.bd/notices.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://iurs.org.bd/publications</loc>
+    <loc>https://iurs.org.bd/publications.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://iurs.org.bd/training-session</loc>
+    <loc>https://iurs.org.bd/training-session.html</loc>
     <lastmod>2026-10-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
