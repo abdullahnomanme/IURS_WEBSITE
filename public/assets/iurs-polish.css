@@ -514,3 +514,41 @@ body:has(.iu-chat.open) #scroll-top-btn { opacity: 0; pointer-events: none; }
    exactly why some headings looked blotchy and over-heavy next to others.
    Refusing synthesis makes the browser fall back to the real 800 cut instead. */
 html { font-synthesis-weight: none; -webkit-font-synthesis: none; }
+
+/* ============================================================
+   SITE QUALITY LAYER — accessible, responsive, brand-preserving
+   Additive styles only; no CMS or API behaviour is changed.
+   ============================================================ */
+:root { scroll-padding-top: 6rem; }
+button, input, select, textarea { font: inherit; }
+img { max-width: 100%; }
+a, button { -webkit-tap-highlight-color: transparent; }
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid var(--skyColor, #f6c445);
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  body .hero-content-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 32px !important;
+  }
+  body .hero-inner { padding: 70px 0 48px !important; }
+  body .hero-right-panel { width: 100%; max-width: 100%; }
+  body .hero-tagline { font-size: clamp(2.45rem, 10vw, 4.25rem); }
+  body .hero-tagline .line3 { color: var(--skyColor, #f6c445) !important; }
+  body .hero-stats {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  body .hero-stat:nth-child(2) { border-right: 0; }
+  body .hero-stat:nth-child(-n+2) { border-bottom: 1px solid rgba(0,0,0,.08); }
+  body .topbar .inner { align-items: flex-start; }
+  body .topbar-left { flex-wrap: wrap; gap: 8px 14px; }
+}
+@media (max-width: 420px) {
+  body .container { padding-left: 14px; padding-right: 14px; }
+  body .hero-stat { padding: 14px 8px; }
+  body .hero-stat .h-num { font-size: 25px; }
+  body .hero-panel-card { padding: 18px; }
+}
