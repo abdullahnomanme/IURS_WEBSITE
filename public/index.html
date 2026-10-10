@@ -1615,12 +1615,26 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
      ============================================================ -->
 <script>
 // Preloader
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    document.getElementById('preloader').classList.add('done');
-    setTimeout(() => document.getElementById('preloader').style.display = 'none', 600);
-  }, 800);
-});
+// Hide the loading screen once the page is ready, and never let a slow font,
+// CDN or image keep it covering the homepage: a hard 3s fallback always clears it.
+(function () {
+  var hidden = false;
+  function hidePreloader() {
+    if (hidden) return;
+    hidden = true;
+    var p = document.getElementById('preloader');
+    if (!p) return;
+    p.classList.add('done');
+    setTimeout(function () { p.style.display = 'none'; }, 600);
+  }
+  if (document.readyState === 'complete') {
+    setTimeout(hidePreloader, 300);
+  } else {
+    window.addEventListener('load', function () { setTimeout(hidePreloader, 300); });
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(hidePreloader, 1500); });
+  }
+  setTimeout(hidePreloader, 3000);
+})();
 
 // Navbar scroll effect
 window.addEventListener('scroll', () => {
