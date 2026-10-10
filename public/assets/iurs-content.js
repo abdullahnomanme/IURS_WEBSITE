@@ -588,8 +588,19 @@
             var parent = g[0].el.parentNode;
             if (!g.every(function (k) { return k.el.parentNode === parent; })) return;
             g.sort(function (a, b) { return a.rank - b.rank; });
-            var anchor = g[0].el;
-            for (var i = g.length - 1; i >= 0; i--) parent.insertBefore(g[i].el, anchor);
+            /* g is sorted by saved rank. Hand its sections the page positions they
+               already occupy, in document order, so the first-ranked section takes
+               the first slot and so on. Unranked blocks between them stay put. */
+            var slots = g.map(function (k) { return k.el; }).sort(function (a, b) {
+              return (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1;
+            });
+            var markers = slots.map(function (el) {
+              var m = document.createComment('iurs-slot');
+              parent.insertBefore(m, el);
+              return m;
+            });
+            g.forEach(function (k, j) { parent.insertBefore(k.el, markers[j]); });
+            markers.forEach(function (m) { parent.removeChild(m); });
           });
         }
       } catch (e) { console.warn('[IURS] homepage order kept static:', e.message); }
