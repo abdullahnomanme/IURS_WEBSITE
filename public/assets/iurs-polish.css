@@ -975,3 +975,20 @@ table td { color: #273449; }
   .hero { align-items: flex-start; flex-direction: column; }
   .hero h1 { font-size: clamp(25px, 7vw, 36px); }
 }
+
+
+/* FIX: gallery card captions were rendered white on the light page background */
+.gallery-card-body,
+.gallery-card-body h3,
+.gallery-card-body p,
+.gallery-card-body .gallery-cat {
+  color: #182235 !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: currentColor;
+}
+.gallery-card-body p { color: #566174 !important; }
+.gallery-card-body .gallery-cat {
+  color: #9b0b2b !important;
+  background: #f8eef1 !important;
+}
+.gallery-card-body h3 { color: #182235 !important; }
