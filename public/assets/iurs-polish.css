@@ -777,3 +777,34 @@ section[class*="cta"] p {
 .impact-grid h3, .impact-grid p {
   color: #263246;
 }
+
+
+/* FIX: homepage stats band had dark text on white cards due to theme override */
+.stats-bar {
+  background: #060f24 !important;
+  color: #ffffff !important;
+}
+.stats-bar .stats-grid,
+.stats-bar .stat-box {
+  background: transparent !important;
+}
+.stats-bar .stat-num-big,
+.stats-bar .stat-num-big .count,
+.stats-bar .stat-num-big span,
+.stats-bar .stat-desc {
+  color: #ffffff !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.stats-bar .stat-desc {
+  color: #d7deeb !important;
+}
+.stats-bar .stat-plus { color: #f6c445 !important; }
+.stats-bar .stat-box.reveal,
+.stats-bar .stat-box.reveal.visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none;
+}
+.stats-bar .stat-box::before,
+.stats-bar .stat-box::after { pointer-events: none; }
