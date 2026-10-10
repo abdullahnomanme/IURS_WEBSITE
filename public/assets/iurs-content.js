@@ -1001,15 +1001,20 @@
       }
     }
 
-    fetch('/api/public/recruitment').then(function (r) { return r.json(); }).then(function (r) {
-      if (!r || typeof r.open !== 'boolean') return;
+    var recruitmentCheck = new AbortController();
+    var recruitmentTimer = setTimeout(function () { recruitmentCheck.abort(); }, 8000);
+    fetch('/api/public/recruitment', { cache: 'no-store', signal: recruitmentCheck.signal }).then(function (r) {
+      if (!r.ok) throw new Error('Recruitment status could not be loaded (' + r.status + ').');
+      return r.json();
+    }).then(function (r) {
+      if (!r || typeof r.open !== 'boolean') throw new Error('The recruitment status response was invalid.');
       paintWindow(r);
       if (!r.open) { showClosed(r.message || 'Member recruitment is closed at the moment.'); return; }
       paintFee(r);
     }).catch(function (e) {
-      // Leave the form usable. A submission outside the window is refused server-side.
       console.warn('[IURS] recruitment window unknown:', e.message);
-    });
+      showClosed('We could not verify the recruitment status right now. Please refresh this page in a moment. Applications remain unavailable until the status can be confirmed.');
+    }).finally(function () { clearTimeout(recruitmentTimer); });
 
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
