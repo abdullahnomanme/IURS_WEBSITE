@@ -29,7 +29,7 @@ copyFileSync(path.join(root, 'src', 'index.js'), path.join(here, 'index.mjs'));
 copyFileSync(path.join(root, 'src', 'seed.js'), path.join(here, 'seed.js'));
 
 let failed = 0;
-for (const suite of ['verify.mjs', 'verify-deploy.mjs']) {
+for (const suite of ['verify.mjs', 'verify-deploy.mjs', 'verify-site-quality.mjs']) {
   const r = spawnSync(process.execPath, [path.join(here, suite)], { stdio: 'inherit', cwd: here });
   if (r.status !== 0) failed++;
 }
