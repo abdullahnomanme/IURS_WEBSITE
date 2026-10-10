@@ -54,6 +54,11 @@ const css = readFileSync(path.join(root,'public/assets/iurs-polish.css'),'utf8')
 check('keyboard focus styles are present', css.includes('SITE QUALITY LAYER') && css.includes('a:focus-visible'));
 check('mobile hero layout is covered', css.includes('max-width: 760px') && css.includes('body .hero-content-grid'));
 check('reduced-motion preference remains supported', css.includes('prefers-reduced-motion: reduce'));
+const peoplePage = readFileSync(path.join(root,'public','executive-committee.html'),'utf8');
+const contentJs = readFileSync(path.join(root,'public/assets','iurs-content.js'),'utf8');
+check('Advisor Panel has a visible, unique anchor target', /id="advisors"/.test(peoplePage) && !/<section[^>]*id="advisors"[^>]*hidden/i.test(peoplePage) && /advSec\.hidden = false/.test(contentJs));
+check('General Members has a visible, unique anchor target', /id="members"/.test(peoplePage) && !/<section[^>]*id="members"[^>]*hidden/i.test(peoplePage) && /memSec\.hidden = false/.test(contentJs));
+check('empty advisor/member states are rendered instead of jumping to another section', contentJs.includes('committee-empty') && contentJs.includes('committee-empty-cell'));
 const sitemap = readFileSync(path.join(root,'sitemap.xml'),'utf8');
 const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>m[1]);
 check('sitemap contains all 12 public pages', pages.length === urls.length && pages.every(([,url])=>urls.includes(url)));
