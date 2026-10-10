@@ -1,8 +1,7 @@
-name: Repair Worker tail
+name: Manual Worker Tail Recovery (Emergency Only)
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
