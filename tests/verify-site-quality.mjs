@@ -57,11 +57,11 @@ check('mobile hero layout is covered', css.includes('max-width: 760px') && css.i
 check('reduced-motion preference remains supported', css.includes('prefers-reduced-motion: reduce'));
 const peoplePage = readFileSync(path.join(root,'public','executive-committee.html'),'utf8');
 const contentJs = readFileSync(path.join(root,'public/assets','iurs-content.js'),'utf8');
-check('Advisor Panel has a visible, unique anchor target', /id="advisors"/.test(peoplePage) && !/<section[^>]*id="advisors"[^>]*hidden/i.test(peoplePage) && /advSec\.hidden = false/.test(contentJs));
-check('General Members has a visible, unique anchor target', /id="members"/.test(peoplePage) && !/<section[^>]*id="members"[^>]*hidden/i.test(peoplePage) && /memSec\.hidden = false/.test(contentJs));
+check('Advisor Panel is a unique view that is hidden by default', /id="advisors"/.test(peoplePage) && /<section[^>]*id="advisors"[^>]*hidden/i.test(peoplePage) && /data-people-view="advisors"/.test(peoplePage) && /setPeopleView\('advisors'\)/.test(contentJs));
+check('General Members is a unique view that is hidden by default', /id="members"/.test(peoplePage) && /<section[^>]*id="members"[^>]*hidden/i.test(peoplePage) && /data-people-view="members"/.test(peoplePage) && /setPeopleView\('members'\)/.test(contentJs));
 check('empty advisor/member states are rendered instead of jumping to another section', contentJs.includes('committee-empty') && contentJs.includes('committee-empty-cell'));
 check('full committee roster renders as profile cards, not a truncated table', /class="exec-grid exec-roster-grid"[^>]*id="exec-roster"/.test(peoplePage) && /body\.appendChild\(execCard\(r, i\)\)/.test(contentJs));
-check('people page has direct links to all four committee sections', ['#executive','#roster','#advisors','#members'].every(h=>peoplePage.includes('href="'+h+'"')));
+check('people page has unified committee, advisor, and member views', ['#executive','#advisors','#members'].every(h=>peoplePage.includes('href="'+h+'"')) && !peoplePage.includes('href="#roster"') && /data-people-view="committee"/.test(peoplePage));
 const sitemap = readFileSync(path.join(root,'sitemap.xml'),'utf8');
 const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>m[1]);
 check('sitemap contains all 12 public pages', pages.length === urls.length && pages.every(([,url])=>urls.includes(url)));
