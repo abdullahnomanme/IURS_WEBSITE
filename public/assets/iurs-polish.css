@@ -1354,3 +1354,84 @@ table td { color: #273449; }
     border-bottom-color: rgba(255,255,255,.2) !important;
   }
 }
+
+
+/* SITE-WIDE INTERACTION / CONTRAST SAFETY PATCH
+   Fixes white-on-white hover states without changing page content. */
+.hero .hero-panel-card .notice-row,
+.hero .hero-panel-card .notice-row *,
+.hero .hero-panel-card .notice-row a {
+  color: rgba(244,247,252,.9) !important;
+  -webkit-text-fill-color: rgba(244,247,252,.9) !important;
+}
+.hero .hero-panel-card .notice-row {
+  background: transparent !important;
+  border-radius: 9px !important;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease !important;
+}
+.hero .hero-panel-card .notice-row:hover,
+.hero .hero-panel-card .notice-row:focus-within {
+  background: rgba(164,17,47,.28) !important;
+  border-color: rgba(246,196,69,.3) !important;
+}
+.hero .hero-panel-card .notice-row:hover *,
+.hero .hero-panel-card .notice-row:focus-within * {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.hero .hero-panel-card .notice-row .ndot { flex-shrink: 0; }
+
+/* General site-wide interactive links: avoid inherited white text on pale hover surfaces. */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid #f6c445 !important;
+  outline-offset: 3px !important;
+}
+.hero .hero-panel-card a:hover,
+.hero .hero-panel-card a:focus-visible {
+  color: #f6c445 !important;
+  -webkit-text-fill-color: #f6c445 !important;
+  background-color: transparent !important;
+}
+.hero .hero-panel-card a:hover *,
+.hero .hero-panel-card a:focus-visible * {
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+/* Reusable light-surface cards: dark readable text even on hover/focus. */
+.gallery-card:hover .gallery-card-body,
+.gallery-card:hover .gallery-card-body h3,
+.gallery-card:hover .gallery-card-body p,
+.gallery-card:focus-within .gallery-card-body,
+.gallery-card:focus-within .gallery-card-body h3,
+.gallery-card:focus-within .gallery-card-body p,
+#voices .testi-card:hover .testi-name,
+#voices .testi-card:hover .testi-role,
+#voices .testi-card:focus-within .testi-name,
+#voices .testi-card:focus-within .testi-role {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.gallery-card:hover .gallery-card-body h3,
+.gallery-card:focus-within .gallery-card-body h3,
+#voices .testi-card:hover .testi-name,
+#voices .testi-card:focus-within .testi-name {
+  color: #172033 !important;
+  -webkit-text-fill-color: #172033 !important;
+}
+.gallery-card:hover .gallery-card-body p,
+.gallery-card:focus-within .gallery-card-body p,
+#voices .testi-card:hover .testi-role,
+#voices .testi-card:focus-within .testi-role {
+  color: #566174 !important;
+  -webkit-text-fill-color: #566174 !important;
+}
+
+/* Global transitions should never animate text opacity to invisibility. */
+a, button, [role="button"] {
+  -webkit-tap-highlight-color: rgba(164,17,47,.14);
+}
