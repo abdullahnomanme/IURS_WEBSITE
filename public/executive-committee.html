@@ -976,6 +976,23 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <meta property="og:url" data-abs="/executive-committee.html" content="/executive-committee.html">
 <meta property="og:image" data-abs="/assets/logo-iurs.webp" content="/assets/logo-iurs.webp">
 <meta name="twitter:card" content="summary">
+<style>
+/* People directory: one unified committee view, with the two principal office-bearers featured. */
+.people-view-tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:20px auto 0}
+.people-view-tabs a{display:inline-flex;align-items:center;justify-content:center;padding:10px 17px;border:1px solid rgba(255,255,255,.25);border-radius:999px;color:#fff;text-decoration:none;font-size:13px;font-weight:700;background:rgba(255,255,255,.07);transition:background .18s ease,border-color .18s ease}
+.people-view-tabs a:hover,.people-view-tabs a.active{background:#fff;color:var(--primaryColor);border-color:#fff}
+#executive{padding-bottom:18px}#roster{padding-top:10px!important;background:var(--shadeColor)}
+#exec-leadership{grid-template-columns:repeat(2,minmax(0,300px));justify-content:center;gap:26px}
+#exec-leadership .exec-card{padding:20px;border-radius:20px;box-shadow:0 14px 36px rgba(12,27,48,.11);text-align:center}
+#exec-leadership .exec-photo{height:300px;max-height:300px;border-radius:15px;overflow:hidden}
+#exec-leadership .exec-photo img{width:100%;height:100%;object-fit:cover}
+#exec-leadership .exec-name{font-size:20px;font-weight:800;margin-top:16px}
+#exec-leadership .exec-role{font-size:13px;font-weight:800}
+#roster .inner-sec-header{margin-top:0}
+#roster .exec-roster-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:900px){#exec-leadership{grid-template-columns:repeat(2,minmax(0,1fr))}#exec-leadership .exec-photo{height:250px}#roster .exec-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.people-view-tabs{gap:7px}.people-view-tabs a{padding:9px 12px;font-size:12px}#exec-leadership{grid-template-columns:1fr;max-width:360px;margin-inline:auto}#exec-leadership .exec-photo{height:320px}#roster .exec-roster-grid{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
 <!-- PRELOADER -->
@@ -1046,7 +1063,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <div class="page-banner-inner">
 <h1>Executive Committee</h1>
 <div class="page-banner-rule"></div>
-<div class="people-jump-links" aria-label="People sections"><a href="#executive">Executive Leadership</a><a href="#roster">Full Committee</a><a href="#advisors">Advisor Panel</a><a href="#members">General Members</a></div>
+<div class="people-jump-links people-view-tabs" aria-label="People sections"><a href="#executive" data-people-view="committee" class="active" aria-current="page">Leadership &amp; Committee</a><a href="#advisors" data-people-view="advisors">Advisor Panel</a><a href="#members" data-people-view="members">General Members</a></div>
 <div class="page-banner-breadcrumb"><a href="index.html">Home</a> <span>/</span> <span class="current">People</span></div>
 <p id="committee-lead" style="color:rgba(255,255,255,.8);max-width:620px;margin:16px auto 0;font-size:15px;line-height:1.7;">The 29-member executive committee leading IURS for the term 2025-2026.</p>
 </div>
@@ -1055,7 +1072,7 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <div class="container">
 <div class="inner-sec-header">
 <div class="sec-label-inline" style="justify-content:center;">Leadership</div>
-<h2 class="sec-h2">Core <span>Leadership</span></h2>
+<h2 class="sec-h2">Leadership <span>&amp; Committee</span></h2>
 <div class="rule" style="margin:14px auto 0;"></div>
 <div class="cm-switch" hidden id="committee-switch">
 <label for="committee-select">Committee term</label>
@@ -1182,20 +1199,19 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 <!-- ADVISOR PANEL — filled from /api/public/committee (tier "advisor").
      Hidden until the committee actually adds an advisor from the dashboard, so an
      empty heading is never shown to the public. -->
-<section class="inner-sec" id="advisors" style="padding-top:36px;">
+<section class="inner-sec" id="advisors" hidden style="padding-top:36px;">
 <div class="container">
 <div class="inner-sec-header">
 <div class="sec-label-inline" style="justify-content:center;">Advisor Panel</div>
-<h2 class="sec-h2">Advisors &amp; <span>Moderators</span></h2>
+<h2 class="sec-h2">Advisors, <span>Patrons &amp; Moderators</span></h2>
 <div class="rule" style="margin:14px auto 0;"></div>
-<p style="max-width:680px;margin:16px auto 0;color:var(--bodyColor);line-height:1.7;">Faculty
-advisors and moderators who guide the society's research, training and academic activities.</p>
+<p style="max-width:680px;margin:16px auto 0;color:var(--bodyColor);line-height:1.7;">Advisors, chief patrons, the Vice-Chancellor and moderators who guide IURS.</p>
 </div>
 <div class="exec-grid" id="exec-advisors"><div class="committee-empty" role="status">Advisor and moderator profiles have not been added for this committee term yet.</div></div>
 </div>
 </section>
 <!-- GENERAL MEMBERS — filled from /api/public/committee (tier "member"). -->
-<section class="inner-sec" id="members" style="background:var(--shadeColor);padding-top:36px;">
+<section class="inner-sec" id="members" hidden style="background:var(--shadeColor);padding-top:36px;">
 <div class="container">
 <div class="inner-sec-header">
 <div class="sec-label-inline" style="justify-content:center;">General Members</div>
