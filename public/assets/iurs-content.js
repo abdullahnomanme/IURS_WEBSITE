@@ -280,12 +280,14 @@
       lead.forEach(function (r, i) { grid.appendChild(execCard(r, i)); });
       reveal(grid.querySelectorAll('.reveal:not(.visible)'));
     }
-    if (body && roster.length) {
-      body.innerHTML = roster.map(function (r, i) {
-        return '<tr><td>' + esc(r.sl_no != null ? r.sl_no : i + 1) + '</td><td>' +
-          esc(r.designation || '') + '</td><td>' + esc(r.name || '') + '</td><td>' +
-          esc(r.department || '') + '</td></tr>';
-      }).join('');
+    if (body) {
+      body.innerHTML = '';
+      if (roster.length) {
+        roster.forEach(function (r, i) { body.appendChild(execCard(r, i)); });
+        reveal(body.querySelectorAll('.reveal:not(.visible)'));
+      } else {
+        body.innerHTML = '<div class="committee-empty" role="status">No additional committee members have been added for this term yet.</div>';
+      }
     }
 
     /* Advisor and general-member anchors stay visible even when empty, so their
@@ -323,7 +325,15 @@
     if (memCount) memCount.textContent = String(members.length);
 
     var p = document.getElementById('committee-lead');
-    if (p && session.description) p.textContent = session.description;
+    if (p) {
+      var total = lead.length + roster.length;
+      var label = session.label || 'current term';
+      p.textContent = (session.description ? session.description + ' ' : '') +
+        'Full committee for ' + label + ': ' + total + ' executive members' +
+        (advisors.length ? ', ' + advisors.length + ' advisor/moderator' + (advisors.length === 1 ? '' : 's') : '') + '.';
+    }
+    var countLabel = document.getElementById('committee-count');
+    if (countLabel) countLabel.textContent = '(' + (lead.length + roster.length) + ' members)';
     var badge = document.getElementById('committee-badge');
     if (badge) badge.textContent = session.isCurrent ? 'Current committee' : 'Previous committee';
   }
