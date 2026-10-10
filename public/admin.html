@@ -96,7 +96,43 @@ body{background:radial-gradient(circle at 90% 0%,rgba(201,162,78,.08),transparen
 <meta property="og:url" data-abs="/admin.html" content="/admin.html">
 <meta property="og:image" data-abs="/assets/logo-iurs.webp" content="/assets/logo-iurs.webp">
 <meta name="twitter:card" content="summary">
-</head><body><header class="top"><div class="brand"><img decoding="async" width="512" height="512" src="assets/logo-iurs.webp" alt="IURS"><div><strong>IURS Executive Space</strong><small>Research can change the world</small></div></div><div><span id="who" class="muted" style="margin-right:12px"></span><button id="logout">Logout</button></div></header><main class="wrap"><div class="layout"><nav class="tabs">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet"><style>
+/* Admin redesign: cleaner SaaS workspace, consistent Manrope + Inter */
+:root{--red:#a4112f;--red2:#7c0a20;--navy:#101d33;--cream:#f5f7fb;--line:#e5e9f0;--text:#172033;--muted:#667085;--green:#137a4a;--amber:#9a5b00;--panel-shadow:0 10px 30px rgba(16,24,40,.045)}
+body{font-family:'Inter','Noto Sans Bengali',system-ui,sans-serif;background:#f5f7fb;color:#172033;letter-spacing:-.008em}
+h1,h2,h3,.brand strong,.tab-group,.stat b{font-family:'Manrope','Inter',system-ui,sans-serif;letter-spacing:-.035em}
+.top{height:70px;padding:0 clamp(16px,3vw,36px);border-bottom:1px solid #e6eaf1;box-shadow:0 2px 14px rgba(16,24,40,.035)}
+.brand img{box-shadow:0 4px 14px #a4112f18}
+.wrap{max-width:1540px;padding:clamp(16px,2.5vw,34px)}
+.layout{grid-template-columns:240px minmax(0,1fr);gap:22px}
+.tabs{border-color:#e6eaf1;border-radius:16px;box-shadow:var(--panel-shadow);padding:10px;top:86px;background:rgba(255,255,255,.96)}
+.tab{border:1px solid transparent;border-radius:9px;padding:10px 12px;font-size:13px;color:#475467;background:transparent}
+.tab:hover{background:#f7f8fb;color:#a4112f}
+.tab.active{background:#a4112f;color:white;box-shadow:0 4px 12px #a4112f26}
+.tab-group{font-size:10px;letter-spacing:.12em;color:#98a2b3;padding-left:8px}
+.hero{align-items:center;margin-bottom:26px}
+.hero h1{font-size:clamp(28px,3vw,38px);line-height:1.12;letter-spacing:-.045em}
+.panel{border-color:#e6eaf1;border-radius:16px;padding:clamp(16px,2vw,24px);box-shadow:var(--panel-shadow);margin-bottom:18px}
+.panel h2{font-size:20px;letter-spacing:-.03em}
+.stat{background:linear-gradient(145deg,#14233d,#0d1728);border:1px solid #ffffff12;box-shadow:0 8px 22px #101d3310}
+.stat b{font-size:clamp(24px,2.2vw,32px)}
+.field label{font-size:12px;color:#344054}
+.field input,.field select,.field textarea{border-color:#d8dee8;border-radius:10px;padding:11px 12px;min-height:42px;transition:border-color .18s,box-shadow .18s}
+.field input:focus,.field select:focus,.field textarea:focus{outline:0;border-color:#a4112f;box-shadow:0 0 0 3px #a4112f14}
+.btn,.top button{border-radius:9px;box-shadow:0 2px 4px #1018280a;transition:transform .18s,box-shadow .18s,background .18s}
+.btn:hover,.top button:hover{transform:translateY(-1px);box-shadow:0 7px 16px #a4112f20}
+.btn.secondary{border-color:#e2c4cc;background:white}
+.table-wrap{border-color:#e6eaf1;border-radius:12px}
+.table th{background:#f8f9fc;color:#667085;font-size:10px;letter-spacing:.09em}
+.table td{line-height:1.55}
+.mini{border-color:#e6eaf1;border-radius:12px;box-shadow:0 3px 10px #10182804;transition:transform .18s,box-shadow .18s}
+.mini:hover{transform:translateY(-2px);box-shadow:0 10px 24px #1018280c}
+.dropzone{border-color:#d7dce6;background:#fafbfe;border-radius:12px}
+.dropzone:hover,.dropzone.drag{background:#fff5f7;border-color:#a4112f}
+.msg{line-height:1.6}
+@media(max-width:1100px){.layout{grid-template-columns:minmax(0,1fr);gap:16px}.tabs{top:auto;box-shadow:none}.tab{flex:0 0 auto}.tab-group{flex:0 0 100%}}
+@media(max-width:700px){.top{height:62px}.brand img{width:38px;height:38px}.brand strong{font-size:16px}.brand small{font-size:10px}.wrap{padding:14px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{padding:15px}.hero h1{font-size:28px}.panel{padding:16px}.tabs{gap:4px}.tab{font-size:12px;padding:8px 10px}}
+</style></head><body><header class="top"><div class="brand"><img decoding="async" width="512" height="512" src="assets/logo-iurs.webp" alt="IURS"><div><strong>IURS Executive Space</strong><small>Research can change the world</small></div></div><div><span id="who" class="muted" style="margin-right:12px"></span><button id="logout">Logout</button></div></header><main class="wrap"><div class="layout"><nav class="tabs">
 <button class="tab active" data-tab="dashboard">Dashboard</button>
 <div class="tab-group">Content</div>
 <button class="tab" data-tab="notices">Notices</button>
