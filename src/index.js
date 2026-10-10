@@ -507,7 +507,10 @@ async function getActiveCampaign(env,today){
   const t=today||todayStr();
   const rows=((await env.DB.prepare('SELECT * FROM recruitment_campaigns WHERE archived=0 ORDER BY sort_order,id DESC').all()).results||[]);
   if(!rows.length)return null;
-  return rows.find(c=>campaignIsOpen(c,t))||rows[0];
+  // Only a currently open campaign takes precedence. If every campaign is
+  // closed or outside its dates, fall back to the legacy Recruitment settings
+  // so the main Recruitment switch in the admin panel can control applications.
+  return rows.find(c=>campaignIsOpen(c,t))||null;
  }catch(e){console.error('campaign lookup failed',e);return null}
 }
 /* The recruitment window the public site and the Join form should honour right
