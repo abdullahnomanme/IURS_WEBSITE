@@ -9,23 +9,23 @@ function check(label, ok) {
   else { fail++; console.log('  \x1b[31mFAIL\x1b[0m ' + label); }
 }
 const pages = [
-  ['index.html','https://iurs.org.bd/'],
-  ['about.html','https://iurs.org.bd/about'],
-  ['alumni.html','https://iurs.org.bd/alumni'],
-  ['blog.html','https://iurs.org.bd/blog'],
-  ['contact.html','https://iurs.org.bd/contact'],
-  ['events.html','https://iurs.org.bd/events'],
-  ['executive-committee.html','https://iurs.org.bd/executive-committee'],
-  ['gallery.html','https://iurs.org.bd/gallery'],
-  ['join.html','https://iurs.org.bd/join'],
-  ['notices.html','https://iurs.org.bd/notices'],
-  ['publications.html','https://iurs.org.bd/publications'],
-  ['training-session.html','https://iurs.org.bd/training-session'],
+  ['index.html','https://iurs.org.bd/index.html'],
+  ['about.html','https://iurs.org.bd/about.html'],
+  ['alumni.html','https://iurs.org.bd/alumni.html'],
+  ['blog.html','https://iurs.org.bd/blog.html'],
+  ['contact.html','https://iurs.org.bd/contact.html'],
+  ['events.html','https://iurs.org.bd/events.html'],
+  ['executive-committee.html','https://iurs.org.bd/executive-committee.html'],
+  ['gallery.html','https://iurs.org.bd/gallery.html'],
+  ['join.html','https://iurs.org.bd/join.html'],
+  ['notices.html','https://iurs.org.bd/notices.html'],
+  ['publications.html','https://iurs.org.bd/publications.html'],
+  ['training-session.html','https://iurs.org.bd/training-session.html'],
 ];
 console.log('\n\x1b[1mPublic-page SEO and metadata\x1b[0m');
 for (const [file,url] of pages) {
   const html = readFileSync(path.join(root,'public',file),'utf8');
-  check(file + ' has canonical URL', html.includes('<link rel="canonical" href="' + url + '"/>'));
+  const canonical = html.match(/<link\\b[^>]*rel=["']canonical["'][^>]*>/i)?.[0] || '';\n  check(file + ' has canonical URL', canonical.includes('href="' + url + '"'));
   check(file + ' has social-sharing metadata', html.includes('property="og:title"') && html.includes('name="twitter:card"'));
   check(file + ' retains a meta description', /<meta\b(?=[^>]*\bname=["']description["'])[^>]*>/i.test(html));
 }
