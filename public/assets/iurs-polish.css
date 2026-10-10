@@ -723,3 +723,57 @@ footer a:hover { color: var(--skyColor,#f6c445); }
     top: 58px !important;
   }
 }
+
+
+/* IURS homepage contrast repair — headings on dark surfaces and stat cards */
+footer .footer-col h4,
+footer .footer-col h4 a {
+  color: #f8fafc !important;
+}
+footer .footer-col h4 {
+  border-bottom-color: rgba(255,255,255,.16) !important;
+}
+footer .footer-col,
+footer .footer-col li,
+footer .footer-col p,
+footer .footer-col a,
+footer .footer-org-sub,
+footer .footer-brand p {
+  color: #b9c2d0;
+}
+footer .footer-col a:hover { color: #f6c445 !important; }
+footer .footer-contact-list i,
+footer .footer-col li > i { color: #f6c445 !important; }
+
+/* The research CTA uses a navy panel: force the headline to remain readable. */
+.research-cta h2,
+.cta-section h2,
+section[class*="cta"] h2 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,.18);
+}
+.research-cta p,
+.cta-section p,
+section[class*="cta"] p {
+  color: #d7deeb;
+}
+
+/* Keep all four homepage statistic labels and values legible on their dark band. */
+.stats-grid .stat-number,
+.stats-grid .stat-value,
+.stats-grid strong,
+.stats-grid .stat-desc {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+.stats-grid .stat-desc { color: #d7deeb !important; }
+
+/* On the pale four-card band, preserve both icon and text contrast. */
+.stats-cards,
+.stats-row,
+.impact-grid { color: #182235; }
+.stats-cards h3, .stats-cards p,
+.stats-row h3, .stats-row p,
+.impact-grid h3, .impact-grid p {
+  color: #263246;
+}
