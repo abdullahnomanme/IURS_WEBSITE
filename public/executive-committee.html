@@ -984,14 +984,15 @@ footer { background: #0a0e14; color: rgba(255,255,255,.65); }
 #executive{padding-bottom:18px}#roster{padding-top:10px!important;background:var(--shadeColor)}
 #exec-leadership{grid-template-columns:repeat(2,minmax(0,300px));justify-content:center;gap:26px}
 #exec-leadership .exec-card{padding:20px;border-radius:20px;box-shadow:0 14px 36px rgba(12,27,48,.11);text-align:center}
-#exec-leadership .exec-photo{height:auto;aspect-ratio:4/5;max-height:360px;border-radius:15px;overflow:hidden;background:#eef1f6;display:flex;align-items:center;justify-content:center}
-#exec-leadership .exec-photo img{width:100%;height:100%;object-fit:contain;object-position:center center;background:#eef1f6}
+#exec-leadership .exec-photo{width:112px;height:112px;aspect-ratio:1/1;max-height:none;border-radius:50%;overflow:hidden;background:#f3f4f8;border:4px solid #fff;outline:3px solid rgba(150,11,39,.16);box-shadow:0 8px 22px rgba(12,27,48,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+#exec-leadership .exec-photo img{width:100%;height:100%;object-fit:contain;object-position:center center;background:#f3f4f8;border-radius:50%}
+#exec-leadership .exec-photo .exec-photo-placeholder{border-radius:50%;font-size:27px}
 #exec-leadership .exec-name{font-size:20px;font-weight:800;margin-top:16px}
 #exec-leadership .exec-role{font-size:13px;font-weight:800}
 #roster .inner-sec-header{margin-top:0}
 #roster .exec-roster-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
-@media(max-width:900px){#exec-leadership{grid-template-columns:repeat(2,minmax(0,300px));justify-content:center}#exec-leadership .exec-photo{max-height:320px}#roster .exec-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:560px){#exec-leadership{grid-template-columns:repeat(2,minmax(0,1fr));max-width:520px;margin-inline:auto;gap:12px}#exec-leadership .exec-card{padding:12px}#exec-leadership .exec-photo{max-height:280px}#roster .exec-roster-grid{grid-template-columns:1fr}}
+@media(max-width:900px){#exec-leadership{grid-template-columns:repeat(2,minmax(0,300px));justify-content:center}#exec-leadership .exec-photo{width:104px;height:104px}#roster .exec-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){#exec-leadership{grid-template-columns:repeat(2,minmax(0,1fr));max-width:520px;margin-inline:auto;gap:12px}#exec-leadership .exec-card{padding:12px}#exec-leadership .exec-photo{width:84px;height:84px}#roster .exec-roster-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
