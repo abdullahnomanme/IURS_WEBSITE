@@ -60,7 +60,7 @@ const contentJs = readFileSync(path.join(root,'public/assets','iurs-content.js')
 check('Advisor Panel has a visible, unique anchor target', /id="advisors"/.test(peoplePage) && !/<section[^>]*id="advisors"[^>]*hidden/i.test(peoplePage) && /advSec\.hidden = false/.test(contentJs));
 check('General Members has a visible, unique anchor target', /id="members"/.test(peoplePage) && !/<section[^>]*id="members"[^>]*hidden/i.test(peoplePage) && /memSec\.hidden = false/.test(contentJs));
 check('empty advisor/member states are rendered instead of jumping to another section', contentJs.includes('committee-empty') && contentJs.includes('committee-empty-cell'));
-check('full committee roster renders as profile cards, not a truncated table', /id="exec-roster"[^>]*class="exec-grid exec-roster-grid"/.test(peoplePage) && /body\.appendChild\(execCard\(r, i\)\)/.test(contentJs));
+check('full committee roster renders as profile cards, not a truncated table', /class="exec-grid exec-roster-grid"[^>]*id="exec-roster"/.test(peoplePage) && /body\.appendChild\(execCard\(r, i\)\)/.test(contentJs));
 check('people page has direct links to all four committee sections', ['#executive','#roster','#advisors','#members'].every(h=>peoplePage.includes('href="'+h+'"')));
 const sitemap = readFileSync(path.join(root,'sitemap.xml'),'utf8');
 const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(m=>m[1]);
