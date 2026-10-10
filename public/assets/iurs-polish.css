@@ -1435,3 +1435,67 @@ button:focus-visible,
 a, button, [role="button"] {
   -webkit-tap-highlight-color: rgba(164,17,47,.14);
 }
+
+
+/* GLOBAL CONTENT VISIBILITY + CONTRAST HOTFIX
+   Keep content readable if reveal observers fail or execute late. */
+.reveal,
+.reveal:not(.visible),
+.reveal.visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+.cta-banner,
+.cta-banner .cta-inner,
+.cta-banner .cta-inner h2,
+.cta-banner .cta-inner p,
+.cta-banner .cta-inner h2 *,
+.cta-banner .cta-inner p * {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.cta-banner .cta-btns .btn-white-solid,
+.cta-banner .cta-btns .btn-white-solid *,
+.cta-banner .cta-btns .btn-white-solid:hover,
+.cta-banner .cta-btns .btn-white-solid:focus-visible {
+  color: #a4112f !important;
+  -webkit-text-fill-color: #a4112f !important;
+  background-color: #ffffff !important;
+}
+.cta-banner .cta-btns .btn-outline-white-solid,
+.cta-banner .cta-btns .btn-outline-white-solid *,
+.cta-banner .cta-btns .btn-outline-white-solid:hover,
+.cta-banner .cta-btns .btn-outline-white-solid:focus-visible {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+.focus-grid .focus-card,
+.focus-grid .focus-card > *,
+.focus-grid .focus-card i,
+.focus-grid .focus-card div {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.focus-grid .focus-card div {
+  color: #10141c !important;
+  -webkit-text-fill-color: #10141c !important;
+}
+.focus-grid .focus-card i {
+  color: #a4112f !important;
+  -webkit-text-fill-color: #a4112f !important;
+}
+.focus-grid .focus-card:hover,
+.focus-grid .focus-card:focus-visible {
+  background: #a4112f !important;
+  border-color: #a4112f !important;
+}
+.focus-grid .focus-card:hover div,
+.focus-grid .focus-card:focus-visible div,
+.focus-grid .focus-card:hover i,
+.focus-grid .focus-card:focus-visible i {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
